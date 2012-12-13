@@ -630,12 +630,15 @@ Type.register('top', top)
 #                 |
 #              Measure
 
+class NotShaped(Exception):
+    pass
+
 def extract_dims(ds):
     """ Discard measure information and just return the
     dimensions
     """
     if isinstance(ds, CType):
-        raise Exception("No Dimensions")
+        raise NotShaped()
     return ds.parameters[0:-2]
 
 def extract_measure(ds):
@@ -720,8 +723,7 @@ def to_dtype(ds):
 def promote(*operands):
     """
     Take an arbitrary number of graph nodes and produce the promoted
-    dtype by discarding all shape information and just looking at the
-    measures.
+    dtype ( and shape in the case of Arrays ) in Numpy Fashion.
 
     ::
 
@@ -741,13 +743,19 @@ def promote(*operands):
     # (dshape('2, int', dshape('int')) -> (dshape('int', dshape('int'))
     # (dshape('2, int', dshape('int')) -> (dtype('int', dtype('int'))
 
-    types    = (op.simple_type() for op in operands if op is not None)
+    types    = [op.simple_type() for op in operands if op is not None]
     measures = (extract_measure(t) for t in types)
     dtypes   = (to_numpy(m) for m in measures)
 
     promoted = np.result_type(*dtypes)
     datashape = CType.from_dtype(promoted)
+
     return datashape
+
+def broadcast(*operands):
+    types    = [op.simple_type() for op in operands if op is not None]
+    shapes = (extract_dims(t) for t in types)
+    return np.broadcast(*shapes)
 
 def to_numpy(ds):
     """

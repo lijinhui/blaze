@@ -6,9 +6,10 @@ import blaze
 import numpy as np
 
 from blaze import dshape
+from blaze.table import NDArray, Array
 from blaze.datashape.coretypes import NotNumpyCompatible,\
     to_numpy, from_numpy, extract_dims, extract_measure, \
-    promote
+    promote, broadcast
 
 from nose.tools import assert_raises
 
@@ -50,15 +51,24 @@ def test_promote():
     x,y = IntNode(1), FloatNode(1.)
     res = promote(x,y)
 
-    # TODO: check if this is platform specific
+    ## TODO: check if this is platform specific
     assert res == blaze.float64
-    # ----------------------------------
+    ## ----------------------------------
     x,y = IntNode(1), IntNode(1)
     res = promote(x,y)
 
     assert res == blaze.int32
     # ----------------------------------
+    x = NDArray([1,2,3])
+    y = NDArray([1,2,3])
+    res = promote(x,y)
+    assert res == blaze.int32
+    # ----------------------------------
 
+def test_broadcast():
+    x = NDArray([1,2,3])
+    y = NDArray([1,2,3])
+    res = broadcast(x,y)
 
 #------------------------------------------------------------------------
 # From NumPy

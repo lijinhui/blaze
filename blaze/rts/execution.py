@@ -41,7 +41,8 @@ from blaze.rts.storage import Heap
 def execplan(context, plan, symbols):
     """ Takes a list of of instructions from the Pipeline and
     then allocates the necessary memory needed for the
-    intermediates are temporaries """
+    intermediates are temporaries. Then executes the plan
+    returning the result. """
 
     h = Heap()
     ret = None
