@@ -31,7 +31,7 @@ cdef class ChunkIterator(lldatadesc):
         cdef CChunk cchunk
 
         while True:
-            self.iterator.next(&self.iterator, &cchunk)
+            assert self.iterator.next(&self.iterator, &cchunk) == 0
             if cchunk.data == NULL:
                 break
 

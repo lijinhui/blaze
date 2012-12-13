@@ -55,7 +55,6 @@ ctypedef public struct CIndexer:
                        void *datum) except -1
     IndexerMetaData meta
 
-
 ctypedef int (*tile_read_t)(CTileIndexer *info, Py_ssize_t *indices,
                             CTile *out_tile) except -1
 

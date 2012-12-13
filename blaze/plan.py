@@ -48,7 +48,7 @@ def annotation(graph, *metadata):
     # was originally .datashape but this is a reserved attribute
     # so moved to a new simple_type() method that wraps around
     # promote()
-    anno = annotate_dshape(graph.simple_type())
+    anno = annotate_dshape(graph.datashape)
     annotation = AAnnotation(anno, metadata)
     return annotation
 
@@ -96,8 +96,12 @@ class Instruction(object):
 
         self.datashape = datashape
 
-    def execute(self, operands, lhs):
-        return self.fn(operands, lhs)
+    def execute(self, operands):
+        kwargs = {}
+        if self.lhs is not None:
+            kwargs["lhs"] = self.lhs
+
+        return self.fn(operands, **kwargs)
 
     def __repr__(self):
         # with output types
@@ -176,6 +180,8 @@ class InstructionGen(MroVisitor):
             return self._Slice(term)
         elif label == 'Assign':
             return self._Assign(term)
+        elif label == 'Executor':
+            return self._Executor(term)
         else:
             raise NotImplementedError(term)
 
@@ -200,18 +206,7 @@ class InstructionGen(MroVisitor):
         assert isinstance(op, ATerm)
         label = op.label
 
-        if self.numbapro:
-            pass
-            # ==================================================
-            # TODO: right here is where we would call the
-            # ExecutionPipeline and build a numba ufunc kernel
-            # if we have numbapro. We would pass in the original
-            # ``term`` object which is still of the expected form:
-            #
-            #      Arithmetic(Add, ...)
-            # ==================================================
-
-        # otherwise, go find us implementation for how to execute
+        # Find us implementation for execution
         # Returns either a ExternalF ( reference to a external C
         # library ) or a PythonF, a Python callable. These can be
         # anything, numpy ufuncs, numexpr, pandas, cmath whatever

@@ -41,7 +41,7 @@ import numpy as np
 # sources to allocate on, IOPro allocators, SQL Queries, ZeroMQ...
 
 # TOOD: write in Cython
-def execplan(context, plan, symbols):
+def execplan(context, plan):
     """ Takes a list of of instructions from the Pipeline and
     then allocates the necessary memory needed for the
     intermediates are temporaries. Then executes the plan

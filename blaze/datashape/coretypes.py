@@ -767,6 +767,21 @@ def promote(*operands):
     datashape = CType.from_dtype(promoted)
     return datashape
 
+def broadcast(*operands):
+    types = [op.simple_type() for op in operands if op is not None]
+    shapes = []
+    for t in types:
+        try:
+            shapes.append(extract_dims(t))
+        except NotShaped:
+            pass
+
+    # TODO: broadcasting
+    type = promote(*operands)
+    if not shapes:
+        return type
+    return DataShape(shapes[0] + (type,))
+
 def to_numpy(ds):
     """
     Downcast a datashape object into a Numpy (shape, dtype) tuple if

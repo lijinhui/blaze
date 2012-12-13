@@ -102,13 +102,20 @@ cdef class Executor(object):
 
                 lhs_chunk = paired_chunks[-1]
                 iterators[-1].commit(lhs_chunk)
+
+                chunk = lhs_chunk
+                lhs_data = chunk.chunk.data
+                print 'Executing chunk', <Py_uintptr_t> lhs_data
+                self.execute_chunk(data_pointers, lhs_data,
+                                   chunk.chunk.size)
+                print "done"
         finally:
             free(data_pointers)
             free(strides)
 
         return out_operand
 
-    cdef execute_chunk(self, void **data_pointers, Py_ssize_t *strides, size_t size):
+    cdef execute_chunk(self, void **data_pointers, void *out, size_t size):
         raise NotImplementedError
 
     def __repr__(self):

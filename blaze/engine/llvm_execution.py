@@ -322,8 +322,10 @@ class ATermToAstTranslator(visitor.GraphTranslator):
         return aterm
 
 
-def build_ufunc_executor(operand_dtypes, py_ufunc, pyast_function, result_dtype,
-                         strategy):
+def build_executor(py_ufunc, operands, aterm_subgraph_root, strategy='chunked'):
+    """ Build a ufunc and an wrapping executor from a Python AST """
+    result_dtype = unannotate_dtype(aterm_subgraph_root)
+    operand_dtypes = map(unannotate_dtype, operands)
 
     vectorizer = Vectorize(py_ufunc)
     vectorizer.add(restype=minitype(result_dtype),
@@ -335,6 +337,7 @@ def build_ufunc_executor(operand_dtypes, py_ufunc, pyast_function, result_dtype,
     operation = getsource(return_stat.value)
 
     executor = executors.ElementwiseLLVMExecutor(
+        strategy,
         ufunc,
         operand_dtypes,
         result_dtype,

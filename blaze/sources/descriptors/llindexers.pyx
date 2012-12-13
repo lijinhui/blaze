@@ -45,6 +45,7 @@ cdef class CArrayChunkIterator(ChunkIterator):
         self.iterator.commit = carray_chunk_commit
         self.iterator.dispose = carray_chunk_dispose
 
+
 cdef int carray_chunk_next(CChunkIterator *info, CChunk *chunk) except -1:
     cdef Py_uintptr_t data
 
@@ -54,6 +55,7 @@ cdef int carray_chunk_next(CChunkIterator *info, CChunk *chunk) except -1:
 
         # decompress chunk
         arr = carray_chunk[:]
+        chunk.extra = <void *> carray_chunk
     elif info.cur_chunk_idx == carray.nchunks:
         arr = carray.leftover_array
     else:
