@@ -455,7 +455,10 @@ Ranges are sum types over shape instead of data.
 
 A case where a ``Range`` has no upper bound signifies a potentially infinite
 **stream** of values. Specialized kernels are needed to deal with data
-of this type.
+of this type.::
+
+    Stream, int32
+    Stream, Option int32
 
 ..
     (1 + 1 + ...)
