@@ -49,6 +49,8 @@ class CArraySource(ByteProvider):
         else:
             self.ca = carray.carray(data, rootdir=rootdir, cparams=cparams)
 
+        self.dshape = dshape
+
     @classmethod
     def empty(self, dshape):
         """ Create a CArraySource from a datashape specification,
@@ -60,8 +62,8 @@ class CArraySource(ByteProvider):
 
     # Get a READ descriptor the source
     def read_desc(self):
-        return CArrayDataDescriptor('carray_dd', self.ca.nbytes, self.ca,
-                                    self.dshape)
+        return CArrayDataDescriptor('carray_dd', self.ca.nbytes, self.dshape,
+                                    self.ca)
 
     # Return the layout of the dataa
     def default_layout(self):

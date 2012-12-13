@@ -557,6 +557,9 @@ class Op(ExpressionNode):
         # Make sure the graph makes sense given the signature of
         # the function. Does naive type checking and inference.
 
+        # TODO: type inference on the aterm graph
+        self.datashape = coretypes.broadcast(*operands)
+
     @property
     def nin(self):
         raise NotImplementedError

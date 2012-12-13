@@ -38,26 +38,26 @@ from blaze.rts.storage import Heap
 # sources to allocate on, IOPro allocators, SQL Queries, ZeroMQ...
 
 # TOOD: write in Cython
-def execplan(context, plan, symbols):
+def execplan(context, plan):
     """ Takes a list of of instructions from the Pipeline and
     then allocates the necessary memory needed for the
     intermediates are temporaries. Then executes the plan
     returning the result. """
+
+    symbols = context["symbols"]
 
     h = Heap()
     ret = None
     last = plan[-1]
 
     for instruction in plan:
-        ops = [symbols[sym] for sym in symbols]
-        dds = [op.asbuflist() for op in ops]
-        dss = [op.datashape() for op in ops]
+        ops = [symbols[arg] for arg in op.args]
 
         if instruction.lhs:
             h.allocate(instruction.lhs.size())
-            ret = instruction(dds, dss)
+            ret = instruction.execute(ops)
         else:
-            instruction(dds, dss)
+            instruction.execute(ops)
 
     h.finalize()
     return ret

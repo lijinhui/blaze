@@ -639,7 +639,7 @@ def extract_dims(ds):
     """
     if isinstance(ds, CType):
         raise NotShaped()
-    return ds.parameters[0:-2]
+    return ds.parameters[0:-1]
 
 def extract_measure(ds):
     """ Discard shape information and just return the measure
@@ -753,9 +753,19 @@ def promote(*operands):
     return datashape
 
 def broadcast(*operands):
-    types    = [op.simple_type() for op in operands if op is not None]
-    shapes = (extract_dims(t) for t in types)
-    return np.broadcast(*shapes)
+    types = [op.simple_type() for op in operands if op is not None]
+    shapes = []
+    for t in types:
+        try:
+            shapes.append(extract_dims(t))
+        except NotShaped:
+            pass
+
+    # TODO: broadcasting
+    type = promote(*operands)
+    if not shapes:
+        return type
+    return DataShape(shapes[0] + (type,))
 
 def to_numpy(ds):
     """

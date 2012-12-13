@@ -50,13 +50,15 @@ cdef build_fake_array(dtype):
 
 cdef class Executor(object):
 
+    cdef object strategy
+
     def __init__(self, strategy):
         # assert strategy in ('chunked', 'tiled', 'indexed')
         self.strategy = strategy
 
-    cdef execute(self, operands, out_operand):
+    def execute(self, operands, out_operand):
         "Execute a kernel over the data given the operands and the LHS"
-        method = getattr(self, "execute_" % self.strategy)
+        method = getattr(self, "execute_%s" % self.strategy)
         return method(operands, out_operand)
 
     def execute_chunked(self, operands, out_operand):
@@ -86,9 +88,14 @@ cdef class Executor(object):
 
                 chunk = lhs_chunk
                 lhs_data = chunk.chunk.data
-                self.execute_chunk(data_pointers, lhs_data, lhs_chunk.shape[0])
+                print 'Executing chunk', <Py_uintptr_t> lhs_data
+                self.execute_chunk(data_pointers, lhs_data,
+                                   chunk.chunk.size)
+                print "done"
         finally:
             free(data_pointers)
+
+        print "done..."
 
     cdef execute_chunk(self, void **data_pointers, void *out, size_t size):
         raise NotImplementedError
@@ -131,6 +138,7 @@ cdef class ElementwiseLLVMExecutor(Executor):
             op = self.operands[i]
             op.data = <char *> data_pointers[i]
             op.shape[0] = size
+            print hex(<Py_uintptr_t> op.data), size
 
         if out == NULL:
             raise NotImplementedError
@@ -138,8 +146,11 @@ cdef class ElementwiseLLVMExecutor(Executor):
         op = self.lhs_array
         op.data = <char *> out
         op.shape[0] = size
+        print hex(<Py_uintptr_t> op.data), size
 
+        print 'running ufunc'
         self.ufunc(*self.operands, out=self.lhs_array)
+        print 'done running ufunc'
 
     # TODO: much later a loop that deals with some of the more
     # general datashapes

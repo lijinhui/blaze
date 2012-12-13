@@ -144,44 +144,23 @@ def do_types(context, graph):
 
     return context, graph
 
-def build_ufunc(context, graph):
-    """
-    Using Numba we can take ATerm expressions and build custom
-    ufuncs on the fly if we have NumbaPro.
-
-    ::
-        a + b * c
-
-    ::
-        def ufunc1(op0, op1, op2):
-            return (op0 + (op1 * op2))
-
-    Which can be executed by the runtime through the
-    ElementwiseLLVMExecutor. We stash it in the 'ufunc' parameter in
-    the context. It's preferable to build these, otherwise it would
-    involve multiple numpy ufuncs dispatches.
-
-    ::
-        %0 := ElemwiseLLVM[ufunc1](%a, %b, %c)
-
-    """
-    context = dict(context)
-
-    # if no numbapro then just a passthrough
-    if not context['have_numbapro']:
-        return context, graph
-
+def do_aterm(context, graph):
     aterm_graph = context['aterm_graph']
+    return context, aterm_graph
 
-    # Build the custom ufuncs using the ExecutionPipeline
-    from blaze.engine import execution_pipeline
+def build_operand_dict(context, aterm_graph):
+    operands = context['operands']
+    operand_dict = dict((id(op), op) for op in operands)
+    context['operand_dict'] = operand_dict
+    return context, aterm_graph
 
-    # NOTE: the purpose of the execution pipeline is for every component to
-    # cooperate, not just numba
-    p = execution_pipeline.ExecutionPipeline()
-    p.run_pipeline(context, aterm_graph)
+def substitute_llvm(context, aterm_graph):
+    "Substitute executors for the parts of the graph we can handle"
+    from blaze.engine import llvm_execution
 
-    return context, graph
+    executors = context['executors'] = {}
+    aterm_graph = llvm_execution.substitute_llvm_executors(aterm_graph, executors)
+    return context, aterm_graph
 
 def do_plan(context, graph):
     """ Take the ATerm expression graph and do inner-most evaluation to
@@ -213,6 +192,7 @@ def do_plan(context, graph):
 
     return context, plan
 
+
 #------------------------------------------------------------------------
 # Pipeline
 #------------------------------------------------------------------------
@@ -237,7 +217,11 @@ class Pipeline(object):
             do_environment,
             do_convert_to_aterm,
             do_types,
-            build_ufunc,
+            do_aterm,
+
+            # codegen stages
+            build_operand_dict,
+            substitute_llvm,
             do_plan,
         ]
 

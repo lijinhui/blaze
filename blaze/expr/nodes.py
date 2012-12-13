@@ -77,6 +77,18 @@ class Node(object):
     def name(self):
         return 'GenericNode'
 
+    def datashape_get(self):
+        # TODO: aterm type inference
+        ds = getattr(self, '_datashape', None)
+        if ds is not None:
+            return ds
+        return self.simple_type()
+
+    def datashape_set(self, datashape):
+        self._datashape = datashape
+
+    datashape = property(datashape_get, datashape_set)
+
 #------------------------------------------------------------------------
 # Traversal
 #------------------------------------------------------------------------

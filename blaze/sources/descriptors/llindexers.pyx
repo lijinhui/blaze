@@ -17,7 +17,7 @@ cdef class CArrayChunkIterator(ChunkIterator):
         self.iterator.commit = carray_chunk_commit
 
 
-cdef void carray_chunk_next(CChunkIterator *info, CChunk *chunk):
+cdef int carray_chunk_next(CChunkIterator *info, CChunk *chunk) except -1:
     cdef Py_uintptr_t data
 
     carray = <object> <PyObject *> info.meta.source
@@ -26,12 +26,13 @@ cdef void carray_chunk_next(CChunkIterator *info, CChunk *chunk):
 
         # decompress chunk
         arr = carray_chunk[:]
+        chunk.extra = <void *> carray_chunk
     elif info.cur_chunk_idx == carray.nchunks:
         arr = carray.leftover_array
     else:
         chunk.data = NULL
         # chunk.size = 0
-        return
+        return 0
 
     chunk.data = <void *> <Py_uintptr_t> arr.ctypes.data
     chunk.size = arr.shape[0]
@@ -41,11 +42,12 @@ cdef void carray_chunk_next(CChunkIterator *info, CChunk *chunk):
     # Keep decompressed memory alive
     Py_INCREF(arr)
     chunk.obj = <PyObject *> arr
-    chunk.extra = <void *> carray_chunk
 
     info.cur_chunk_idx += 1
 
-cdef void carray_chunk_commit(CChunkIterator *info, CChunk *chunk):
+    return 0
+
+cdef int carray_chunk_commit(CChunkIterator *info, CChunk *chunk) except -1:
     carray_obj = <object> <PyObject *> info.meta.source
     if chunk.chunk_index < carray_obj.nchunks:
         # compress chunk and replace previous chunk
@@ -55,8 +57,10 @@ cdef void carray_chunk_commit(CChunkIterator *info, CChunk *chunk):
                                                         carray_obj.cparams)
 
     carray_chunk_dispose(info, chunk)
+    return 0
 
-cdef void carray_chunk_dispose(CChunkIterator *info, CChunk *chunk):
+cdef int carray_chunk_dispose(CChunkIterator *info, CChunk *chunk) except -1:
     # Decref previously set live object
     Py_XDECREF(chunk.obj)
     chunk.obj = NULL
+    return 0

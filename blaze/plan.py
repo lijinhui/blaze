@@ -46,7 +46,7 @@ def annotation(graph, *metadata):
     # was originally .datashape but this is a reserved attribute
     # so moved to a new simple_type() method that wraps around
     # promote()
-    anno = annotate_dshape(graph.simple_type())
+    anno = annotate_dshape(graph.datashape)
     annotation = AAnnotation(anno, metadata)
     return annotation
 
@@ -73,6 +73,13 @@ class Instruction(object):
         self.fn = fn
         self.lhs = lhs
         self.args = args or []
+
+    def execute(self, operands):
+        kwargs = {}
+        if self.lhs is not None:
+            kwargs["lhs"] = self.lhs
+
+        self.fn(operands, **kwargs)
 
     def __repr__(self):
         # with output types
@@ -115,9 +122,6 @@ class InstructionGen(MroVisitor):
 
     """
 
-    # TODO: markf comments: this gives us an all-or-nothing approach
-    # either "all-numba" or "all-something else". FIX this
-
     def __init__(self, have_numbapro):
         self.numbapro = have_numbapro
 
@@ -149,6 +153,8 @@ class InstructionGen(MroVisitor):
             return self._Slice(term)
         elif label == 'Assign':
             return self._Assign(term)
+        elif label == 'Executor':
+            return self._Executor(term)
         else:
             raise NotImplementedError
 
@@ -173,18 +179,7 @@ class InstructionGen(MroVisitor):
         assert isinstance(op, ATerm)
         label = op.label
 
-        if self.numbapro:
-            pass
-            # ==================================================
-            # TODO: right here is where we would call the
-            # ExecutionPipeline and build a numba ufunc kernel
-            # if we have numbapro. We would pass in the original
-            # ``term`` object which is still of the expected form:
-            #
-            #      Arithmetic(Add, ...)
-            # ==================================================
-
-        # otherwise, go find us implementation for how to execute
+        # Find us implementation for execution
         # Returns either a ExternalF ( reference to a external C
         # library ) or a PythonF, a Python callable. These can be
         # anything, numpy ufuncs, numexpr, pandas, cmath whatever
@@ -213,6 +208,21 @@ class InstructionGen(MroVisitor):
 
     def _Slice(self, term):
         pass
+
+    def _Executor(self, term):
+        backend, executor_id, has_lhs = term.annotation.meta
+        executor = self.executors[executor_id.label]
+
+        self.visit(term.args)
+
+        fargs = [self._vartable[a] for a in term.args]
+
+        # push the temporary for the result in the vartable
+        lhs = self.var(term)
+
+        # build the instruction & push it on the stack
+        inst = Instruction(executor, fargs, lhs=key)
+        self._instructions.append(inst)
 
     def AInt(self, term):
         self._vartable[term] = Constant(term.n)
