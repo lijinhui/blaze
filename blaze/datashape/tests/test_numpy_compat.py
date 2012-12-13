@@ -59,8 +59,8 @@ def test_promote():
 
     assert res == blaze.int32
     # ----------------------------------
-    x = NDArray([1,2,3])
-    y = NDArray([1,2,3])
+    x = NDArray([1,2,3], dshape('3, int32'))
+    y = NDArray([1,2,3], dshape('3, int32'))
     res = promote(x,y)
     assert res == blaze.int32
     # ----------------------------------
