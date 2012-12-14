@@ -32,6 +32,12 @@ cdef class ChunkIterator(lldatadesc):
             chunk.chunk = cchunk
             yield chunk
 
+    def commit(self, Chunk chunk):
+        self.iterator.commit(&self.iterator, &chunk.chunk)
+
+    def dispose(self, Chunk chunk):
+        self.iterator.dispose(&self.iterator, &chunk.chunk)
+
 cdef class Tile(object):
     """
     Tiles exposed to Python

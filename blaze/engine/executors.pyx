@@ -87,10 +87,14 @@ cdef class Executor(object):
 
                 chunk = lhs_chunk
                 lhs_data = chunk.chunk.data
-                # print 'Executing chunk', <Py_uintptr_t> lhs_data
+
                 self.execute_chunk(data_pointers, lhs_data,
                                    chunk.chunk.size)
-                # print "done"
+
+                for it, chunk in zip(iterators, paired_chunks):
+                    it.dispose(chunk)
+
+                iterators[-1].commit(lhs_chunk)
         finally:
             free(data_pointers)
 
@@ -143,11 +147,6 @@ cdef class ElementwiseLLVMExecutor(Executor):
         op = self.lhs_array
         op.data = <char *> out
         op.shape[0] = size
-        # print hex(<Py_uintptr_t> op.data), size
+        print "lhs", hex(<Py_uintptr_t> op.data), size
 
-        # print 'running ufunc'
         self.ufunc(*self.operands, out=self.lhs_array)
-        # print 'done running ufunc'
-
-    # TODO: much later a loop that deals with some of the more
-    # general datashapes

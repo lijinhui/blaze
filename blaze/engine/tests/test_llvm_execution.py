@@ -38,7 +38,7 @@ def test_execution():
     graph = a + b * c
     out[:] = graph
 
-    print list(out.data.ca)
+    print list(out.data.ca), hex(out.data.ca.leftover_array.ctypes.data)
     assert list(out.data.ca) == [46, 62, 80, 100]
 
 if __name__ == '__main__':

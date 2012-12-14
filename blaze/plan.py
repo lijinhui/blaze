@@ -246,11 +246,13 @@ class InstructionGen(MroVisitor):
 
         fargs = [self._vartable[a] for a in term.args]
 
-        # push the temporary for the result in the vartable
-        lhs = self.var(term)
+        if has_lhs:
+            fargs, lhs = fargs[:-1], fargs[-1]
+        else:
+            lhs = None
 
         # build the instruction & push it on the stack
-        inst = Instruction(executor, get_datashape(term), fargs)
+        inst = Instruction(executor, get_datashape(term), fargs, lhs=lhs)
         self._instructions.append(inst)
 
     def AInt(self, term):
