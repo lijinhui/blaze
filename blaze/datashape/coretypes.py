@@ -146,7 +146,7 @@ class DataShape(object):
     def __init__(self, parameters=None, name=None):
 
         if type(parameters) is DataShape:
-            self.paramaeters = parameters
+            self.parameters = parameters
 
         elif len(parameters) > 0:
             self.parameters = tuple(flatten(parameters))

@@ -181,7 +181,10 @@ def build_ufunc(context, graph):
     p = execution_pipeline.ExecutionPipeline()
     p.run_pipeline(context, aterm_graph)
 
-    return context, graph
+    executors = context['executors'] = {}
+    aterm_graph = llvm_execution.substitute_llvm_executors(
+                aterm_graph, executors, context["operand_dict"])
+    return context, aterm_graph
 
 def do_plan(context, aterm_graph):
     """ Take the ATerm expression graph and do inner-most evaluation to

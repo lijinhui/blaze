@@ -16,6 +16,7 @@ from blaze.datashape import coretypes
 from blaze.engine import pipeline
 from blaze.engine import executors
 from blaze.sources import canonical
+from blaze import plan
 
 from blaze.datashape import datashape
 from blaze import Table, NDTable, Array, NDArray
@@ -49,19 +50,6 @@ class GraphToAst(visitor.BasicGraphVisitor):
         return self.ufunc_builder.register_operand(tree)
 
 
-def get_datashape(dshape_aterm):
-    "Assemble datashape from aterm dshape"
-    args = []
-    for arg in dshape_aterm.args:
-        if isinstance(arg, paterm.AInt):
-            args.append(arg.n)
-        elif isinstance(arg, paterm.AString):
-            args.append(arg.s)
-        else:
-            raise NotImplementedError
-
-    return datashape(*args)
-
 class ATermToAstTranslator(visitor.GraphTranslator):
     """
     Convert an aterm graph to a Python AST.
@@ -74,10 +62,15 @@ class ATermToAstTranslator(visitor.GraphTranslator):
 
     nesting_level = 0
 
-    def __init__(self, executors):
+    def __init__(self, executors, blaze_operands):
         super(ATermToAstTranslator, self).__init__()
         self.ufunc_builder = UFuncBuilder()
         self.executors = executors
+        self.blaze_operands = blaze_operands # term -> blaze graph object
+
+    def get_blaze_op(self, term):
+        term_id = term.annotation.meta[0].label
+        return self.blaze_operands[term_id]
 
     def register(self, graph, result, lhs=None):
         if lhs is not None:
@@ -95,9 +88,14 @@ class ATermToAstTranslator(visitor.GraphTranslator):
 
             if lhs is not None:
                 operands.append(lhs)
+                datashape = lhs.annotation.ty #self.get_blaze_op(lhs).datashape
+            else:
+                # blaze_operands = [self.get_blaze_op(op) for op in operands]
+                # datashape = coretypes.broadcast(*blaze_operands)
+                datashape = graph.annotation.ty
 
             annotation = paterm.AAnnotation(
-                ty=None,
+                ty=datashape,
                 annotations=[id(executor), 'numba', bool(lhs)]
             )
             appl = paterm.AAppl(paterm.ATerm('Executor'), operands,
@@ -133,7 +131,7 @@ class ATermToAstTranslator(visitor.GraphTranslator):
             self.nesting_level += 1
             lhs = self.visit(lhs)
             self.nesting_level -= 1
-            self.ufunc_builder.operands.pop() # pop LHS from operands
+            lhs = self.ufunc_builder.operands.pop() # pop LHS from operands
         else:
             # LHS is complicated, let someone else (or ourselves!) execute
             # it independently
@@ -167,7 +165,7 @@ class ATermToAstTranslator(visitor.GraphTranslator):
         if paterm.matches('Arithmetic;*', app.spine):
             opname = app.args[0].label.lower()
             op = self.opname_to_astop.get(opname, None)
-            type = get_datashape(app.annotation.ty)
+            type = plan.get_datashape(app)
             is_array = type.shape or self.nesting_level
             if op is not None and is_array and len(app.args) == 3: # args = [op, lhs, rhs]
                 return self.handle_arithmetic(app, op)
@@ -255,6 +253,6 @@ def unannotate_dtype(aterm):
 def minitype(dtype):
     return minitypes.map_dtype(dtype)
 
-def substitute_llvm_executors(aterm_graph, executors):
-    translator = ATermToAstTranslator(executors)
+def substitute_llvm_executors(aterm_graph, executors, operands):
+    translator = ATermToAstTranslator(executors, operands)
     return translator.visit(aterm_graph)
