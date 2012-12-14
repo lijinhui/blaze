@@ -28,6 +28,7 @@
 # - Later: handle kernel fusion
 # - Much Later: handle GPU access & thread control
 
+import blaze
 from blaze.rts.storage import Heap
 
 # =================================
@@ -61,11 +62,12 @@ def execplan(context, plan):
         ops = map(getop, instruction.args)
 
         if not instruction.lhs:
-            lhs = h.allocate(instruction.lhs.size())
+            # lhs = h.allocate(instruction.lhs.size())
+            lhs = blaze.zeros(instruction.datashape)
         else:
             lhs = getop(instruction.lhs)
 
         ret = instruction.execute(ops, lhs)
 
-    h.finalize()
+    # h.finalize()
     return ret

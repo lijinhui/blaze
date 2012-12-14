@@ -7,9 +7,11 @@ import numpy as np
 
 from collections import namedtuple
 
+from blaze.datashape import datashape
 from blaze.datashape.coretypes import DataShape
 from blaze.byteproto import CONTIGUOUS, READ
 
+from blaze.expr import paterm
 from blaze.expr.paterm import AAppl, ATerm, AAnnotation, AString, AInt, AFloat
 from blaze.expr.visitor import MroVisitor
 
@@ -50,6 +52,21 @@ def annotation(graph, *metadata):
     annotation = AAnnotation(anno, metadata)
     return annotation
 
+def get_datashape(term):
+    "Assemble datashape from aterm dshape"
+    type = term.annotation.ty
+
+    args = []
+    for arg in type.args:
+        if isinstance(arg, paterm.AInt):
+            args.append(arg.n)
+        elif isinstance(arg, paterm.AString):
+            args.append(arg.s)
+        else:
+            raise NotImplementedError
+
+    return datashape(*args)
+
 #------------------------------------------------------------------------
 # ATerm -> Instructions
 #------------------------------------------------------------------------
@@ -67,12 +84,14 @@ class Var(object):
         return self.key
 
 class Instruction(object):
-    def __init__(self, fn, args=None, lhs=None):
+    def __init__(self, fn, datashape, args=None, lhs=None):
         """ %lhs = fn{props}(arguments) """
 
         self.fn = fn
         self.lhs = lhs
         self.args = args or []
+
+        self.datashape = datashape
 
     def execute(self, operands, lhs):
         self.fn(operands, lhs)
@@ -197,7 +216,7 @@ class InstructionGen(MroVisitor):
         key = self.var(term)
 
         # build the instruction & push it on the stack
-        inst = Instruction(str(fn.fn), fargs, lhs=key)
+        inst = Instruction(str(fn.fn), get_datashape(term), fargs, lhs=key)
         self._instructions.append(inst)
 
     def _Array(self, term):
@@ -222,7 +241,7 @@ class InstructionGen(MroVisitor):
         lhs = self.var(term)
 
         # build the instruction & push it on the stack
-        inst = Instruction(executor, fargs)
+        inst = Instruction(executor, get_datashape(term), fargs)
         self._instructions.append(inst)
 
     def AInt(self, term):

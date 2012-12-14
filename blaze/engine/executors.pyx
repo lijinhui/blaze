@@ -58,7 +58,7 @@ cdef class Executor(object):
 
     def __call__(self, operands, out_operand):
         "Execute a kernel over the data given the operands and the LHS"
-        print operands, out_operand
+        # print operands, out_operand
         method = getattr(self, "execute_%s" % self.strategy)
         return method(operands, out_operand)
 
@@ -89,14 +89,12 @@ cdef class Executor(object):
 
                 chunk = lhs_chunk
                 lhs_data = chunk.chunk.data
-                print 'Executing chunk', <Py_uintptr_t> lhs_data
+                # print 'Executing chunk', <Py_uintptr_t> lhs_data
                 self.execute_chunk(data_pointers, lhs_data,
                                    chunk.chunk.size)
-                print "done"
+                # print "done"
         finally:
             free(data_pointers)
-
-        print "done..."
 
     cdef execute_chunk(self, void **data_pointers, void *out, size_t size):
         raise NotImplementedError
@@ -139,7 +137,7 @@ cdef class ElementwiseLLVMExecutor(Executor):
             op = self.operands[i]
             op.data = <char *> data_pointers[i]
             op.shape[0] = size
-            print hex(<Py_uintptr_t> op.data), size
+            # print hex(<Py_uintptr_t> op.data), size
 
         if out == NULL:
             raise NotImplementedError
@@ -147,11 +145,11 @@ cdef class ElementwiseLLVMExecutor(Executor):
         op = self.lhs_array
         op.data = <char *> out
         op.shape[0] = size
-        print hex(<Py_uintptr_t> op.data), size
+        # print hex(<Py_uintptr_t> op.data), size
 
-        print 'running ufunc'
+        # print 'running ufunc'
         self.ufunc(*self.operands, out=self.lhs_array)
-        print 'done running ufunc'
+        # print 'done running ufunc'
 
     # TODO: much later a loop that deals with some of the more
     # general datashapes

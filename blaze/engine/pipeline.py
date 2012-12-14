@@ -159,7 +159,8 @@ def substitute_llvm(context, aterm_graph):
     from blaze.engine import llvm_execution
 
     executors = context['executors'] = {}
-    aterm_graph = llvm_execution.substitute_llvm_executors(aterm_graph, executors)
+    aterm_graph = llvm_execution.substitute_llvm_executors(
+                aterm_graph, executors, context["operand_dict"])
     return context, aterm_graph
 
 def do_plan(context, aterm_graph):
