@@ -116,7 +116,8 @@ cdef class PyATerm:
                 raise InvalidATerm(pattern)
             else:
                 self.a = a
-                self._repr = ATwriteToString(self.a)
+                self._repr = pattern
+                # self._repr = ATwriteToString(a)
         elif isinstance(pattern, int):
             self.a = <ATerm?>(<int>pattern)
 

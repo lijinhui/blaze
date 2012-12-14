@@ -67,7 +67,8 @@ class Dispatcher(object):
 
     def lookup(self, aterm):
         # convert into a C ATerm, inefficent but whatever
-        ct = caterm.aterm(str(aterm))
+        aterm_str = str(aterm)
+        ct = caterm.aterm(aterm_str)
 
         # canidate functions, functions matching the signature of
         # the term
