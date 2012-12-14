@@ -15,6 +15,7 @@ cdef class CArrayChunkIterator(ChunkIterator):
         super(CArrayChunkIterator, self).__init__(data_obj, datashape)
         self.iterator.next = carray_chunk_next
         self.iterator.commit = carray_chunk_commit
+        self.iterator.dispose = carray_chunk_dispose
 
 
 cdef int carray_chunk_next(CChunkIterator *info, CChunk *chunk) except -1:
