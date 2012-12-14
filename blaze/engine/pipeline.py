@@ -162,7 +162,7 @@ def substitute_llvm(context, aterm_graph):
     aterm_graph = llvm_execution.substitute_llvm_executors(aterm_graph, executors)
     return context, aterm_graph
 
-def do_plan(context, graph):
+def do_plan(context, aterm_graph):
     """ Take the ATerm expression graph and do inner-most evaluation to
     generate a linear sequence of instructions from that together with
     the table of inputs and outputs, built kernels forms the execution
@@ -182,13 +182,11 @@ def do_plan(context, graph):
     """
     context = dict(context)
 
-    aterm_graph = context['aterm_graph']
-
-    ivisitor = InstructionGen(have_numbapro=have_numbapro)
+    ivisitor = InstructionGen(context['executors'], have_numbapro=have_numbapro)
     plan = ivisitor.visit(aterm_graph)
 
     context['instructions'] = ivisitor.result()
-    print ivisitor.result()
+    context['symbols'] = ivisitor.symbols
 
     return context, plan
 
@@ -237,8 +235,7 @@ class Pipeline(object):
         pipeline = reduce(compose, self.pipeline)
 
         context, plan = pipeline(self.init, graph)
-        return context, context['aterm_graph']
-        #return context, plan
+        return context, plan
 
 #------------------------------------------------------------------------
 # Graph Manipulation

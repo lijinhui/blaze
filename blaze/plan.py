@@ -74,21 +74,17 @@ class Instruction(object):
         self.lhs = lhs
         self.args = args or []
 
-    def execute(self, operands):
-        kwargs = {}
-        if self.lhs is not None:
-            kwargs["lhs"] = self.lhs
-
-        self.fn(operands, **kwargs)
+    def execute(self, operands, lhs):
+        self.fn(operands, lhs)
 
     def __repr__(self):
         # with output types
+        rhs = '%s(%s)' % (self.fn, ' '.join(map(repr, self.args)))
         if self.lhs:
-            return self.lhs + ' = ' + \
-            ' '.join([self.fn,] + map(repr, self.args))
+            return '%s = %s' % (self.lhs, rhs)
         # purely side effectful
         else:
-            return ' '.join([self.fn,] + map(repr, self.args))
+            return rhs
 
 
 # TODO: naive constant folding
@@ -122,7 +118,8 @@ class InstructionGen(MroVisitor):
 
     """
 
-    def __init__(self, have_numbapro):
+    def __init__(self, executors, have_numbapro):
+        self.executors = executors
         self.numbapro = have_numbapro
 
         self.n = 0
@@ -135,6 +132,10 @@ class InstructionGen(MroVisitor):
     @property
     def vars(self):
         return self._vartable
+
+    @property
+    def symbols(self):
+        return dict((name, term) for term, name in self._vartable.iteritems())
 
     def var(self, term):
         key = ('%' + str(self.n))
@@ -210,7 +211,7 @@ class InstructionGen(MroVisitor):
         pass
 
     def _Executor(self, term):
-        backend, executor_id, has_lhs = term.annotation.meta
+        executor_id, backend, has_lhs = term.annotation.meta
         executor = self.executors[executor_id.label]
 
         self.visit(term.args)
@@ -221,7 +222,7 @@ class InstructionGen(MroVisitor):
         lhs = self.var(term)
 
         # build the instruction & push it on the stack
-        inst = Instruction(executor, fargs, lhs=key)
+        inst = Instruction(executor, fargs)
         self._instructions.append(inst)
 
     def AInt(self, term):

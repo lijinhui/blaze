@@ -56,8 +56,9 @@ cdef class Executor(object):
         # assert strategy in ('chunked', 'tiled', 'indexed')
         self.strategy = strategy
 
-    def execute(self, operands, out_operand):
+    def __call__(self, operands, out_operand):
         "Execute a kernel over the data given the operands and the LHS"
+        print operands, out_operand
         method = getattr(self, "execute_%s" % self.strategy)
         return method(operands, out_operand)
 

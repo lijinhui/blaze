@@ -244,7 +244,7 @@ class AString(ATermBase):
         self.s = s
 
     def __str__(self):
-        return '"%s"' % (self.s + self.metastr)
+        return "AString(%r)%s" % (self.s, self.metastr)
 
     def __repr__(self):
         return str(self)
@@ -261,7 +261,7 @@ class AInt(ATermBase):
             return self.n == int(value)
 
     def __str__(self):
-        return str(self.n) + self.metastr
+        return "AInt(%d)%s" % (self.n, self.metastr)
 
     def __repr__(self):
         return str(self)

@@ -44,20 +44,28 @@ def execplan(context, plan):
     intermediates are temporaries. Then executes the plan
     returning the result. """
 
-    symbols = context["symbols"]
+    instructions = context["instructions"]  # [ Instruction(...) ]
+    symbols = context["symbols"]            # { %0 -> Array(...){...}
+    operands = context["operand_dict"]      # { Array(...){...} -> Blaze Array }
+
+    def getop(symbol):
+        term = symbols[symbol]
+        term_id = term.annotation.meta[0].label
+        op = operands[term_id]
+        return op
 
     h = Heap()
     ret = None
-    last = plan[-1]
 
-    for instruction in plan:
-        ops = [symbols[arg] for arg in op.args]
+    for instruction in instructions:
+        ops = map(getop, instruction.args)
 
-        if instruction.lhs:
-            h.allocate(instruction.lhs.size())
-            ret = instruction.execute(ops)
+        if not instruction.lhs:
+            lhs = h.allocate(instruction.lhs.size())
         else:
-            instruction.execute(ops)
+            lhs = getop(instruction.lhs)
+
+        ret = instruction.execute(ops, lhs)
 
     h.finalize()
     return ret

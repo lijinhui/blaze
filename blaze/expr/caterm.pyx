@@ -218,9 +218,7 @@ cdef class PyATerm:
             res = ATmatch(self.a, pattern, &c1)
             return (c1,)
         elif len(capture) == 2:
-            print "capturing two..."
             res = ATmatch(self.a, pattern, &c1, &c2)
-            print "done..."
             return (c1,c2)
         elif len(capture) == 3:
             res = ATmatch(self.a, pattern, &c1, &c2, &c3)
