@@ -28,8 +28,8 @@ cdef ATerm ATEmpty
 #------------------------------------------------------------------------
 
 
-cdef inline ATerm ATreadFromString(char *value) except NULL:
-    print "reading...", value
+cdef ATerm ATreadFromString(char *value) except NULL:
+    # print "reading...", value
     cdef ATerm result = _ATreadFromString(value)
     if result == ATEmpty:
         raise InvalidATerm(value)
@@ -121,10 +121,13 @@ cdef class PyATerm:
         else:
             return ATwriteToString(value)
 
-    def amatch(self, char* pattern):
+    def amatch(self, pattern):
         """ Pattern match on annotations """
         for a in self.annotations:
-            return a.matches(pattern)
+            if a.matches(pattern):
+                return True
+
+        return False
 
     def amatch_all(self, list patterns):
         """ Pattern match on annotations """
@@ -166,8 +169,9 @@ cdef class PyATerm:
 
     def __dealloc__(self):
         "Mark the aterm deletable"
-        # TODO: what if this thing is shared by someone else?
+        # TODO: what if this thing is shared by someone else? Is that possible?
         ATunprotect(&self.a)
+        pass
 
     def matches(self, pattern, capture=None):
         """
@@ -186,8 +190,9 @@ cdef class PyATerm:
         Ergo the reason for my half baked query language. Think
         I can roll it in here though
         """
-        cdef object pcopy = copy(pattern)[:]
-        cdef char* cpattern = PyString_AsString(pcopy)
+        assert self.a != NULL
+
+        cdef char* cpattern = pattern
 
         cdef ATbool res
         cdef char *c1, *c2, *c3, *c4, *c5
@@ -195,6 +200,8 @@ cdef class PyATerm:
 
         #if len(pattern) > 0:
             #raise ValueError("Empty pattern match")
+
+        # print "matching", self.pattern, pattern, <Py_uintptr_t> self.a
 
         if capture is None:
             res = ATmatch(self.a, cpattern)
@@ -204,12 +211,16 @@ cdef class PyATerm:
             if res == ATfalse:
                 return False
 
+        # print "done matching..."
+
         # yeah, good stuff
-        elif len(capture) == 1:
+        if len(capture) == 1:
             res = ATmatch(self.a, pattern, &c1)
             return (c1,)
         elif len(capture) == 2:
+            print "capturing two..."
             res = ATmatch(self.a, pattern, &c1, &c2)
+            print "done..."
             return (c1,c2)
         elif len(capture) == 3:
             res = ATmatch(self.a, pattern, &c1, &c2, &c3)
