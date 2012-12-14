@@ -106,9 +106,11 @@ cdef class PyATerm:
 
     cdef ATerm a
     cdef char* _repr
+    cdef object pattern
 
     def __init__(self, pattern):
         cdef ATerm a
+        self.pattern = pattern
 
         if isinstance(pattern, basestring):
             a = ATreadFromString(pattern)
