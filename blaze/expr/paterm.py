@@ -131,7 +131,7 @@ class ATerm(ATermBase):
         return self.label == query
 
     def __repr__(self):
-        return str(self)
+        return "ATerm(%s)%s" % (self.label, self.metastr)
 
 class AAppl(ATermBase):
 
@@ -173,8 +173,13 @@ class AAppl(ATermBase):
     def __str__(self):
         return str(self.spine) + arepr(self.args, '(', ')') + self.metastr
 
+    # NOTE: for debugability, at least constants like AString should print
+    #       their class name to avoid confusion with real constants
     def __repr__(self):
         return str(self)
+        #return "AAppl(spine=%s, args=%s)%s" % (self.spine,
+        #                                       arepr(self.args, '(', ')'),
+        #                                       self.metastr)
 
 class AAnnotation(ATermBase):
 
@@ -228,6 +233,7 @@ class AAnnotation(ATermBase):
 
     def __repr__(self):
         return str(self)
+        # return "AAnnotation(%s)" % self.annotations
 
 class AString(ATermBase):
     def __init__(self, s, **kwargs):
@@ -238,10 +244,10 @@ class AString(ATermBase):
         self.s = s
 
     def __str__(self):
-        return "AString(%r)%s" % (self.s, self.metastr)
+        return '"%s"%s' % (self.s, self.metastr)
 
     def __repr__(self):
-        return str(self)
+        return "AString(%r)%s" % (self.s, self.metastr)
 
 class AInt(ATermBase):
     def __init__(self, n, **kwargs):
@@ -255,10 +261,10 @@ class AInt(ATermBase):
             return self.n == int(value)
 
     def __str__(self):
-        return "AInt(%d)%s" % (self.n, self.metastr)
+        return '%d%s' % (self.n, self.metastr)
 
     def __repr__(self):
-        return str(self)
+        return "AInt(%d)%s" % (self.n, self.metastr)
 
 class AFloat(ATermBase):
     def __init__(self, n, **kwargs):
@@ -269,7 +275,7 @@ class AFloat(ATermBase):
         return str(self.n) + self.metastr
 
     def __repr__(self):
-        return str(self)
+        return "AFloat(%d)%s" % (self.n, self.metastr)
 
 class AList(ATermBase):
     def __init__(self, *elts, **kwargs):
@@ -280,7 +286,7 @@ class AList(ATermBase):
         return arepr(self.elts, '[', ']') + self.metastr
 
     def __repr__(self):
-        return str(self)
+        return "AList(%s)%s" % (arepr(self.elts, '[', ']'), self.metastr)
 
 
 #------------------------------------------------------------------------

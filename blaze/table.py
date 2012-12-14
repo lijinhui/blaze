@@ -271,6 +271,19 @@ class NDArray(Indexable, ArrayNode):
     def __init__(self, obj, dshape=None, metadata=None, layout=None,
             params=None):
 
+        data = None
+
+        # Values
+        # ------
+        # Mimic NumPy behavior in that we have a variety of
+        # possible arguments to the first argument which result
+        # in different behavior for the values.
+
+        if isinstance(obj, CArraySource):
+            self.data = obj
+        else:
+            self.data = CArraySource(data=obj, dshape=dshape, params=params)
+
         # Datashape
         # ---------
 
