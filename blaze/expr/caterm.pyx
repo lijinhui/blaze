@@ -9,98 +9,49 @@ Docs
 * http://www.meta-environment.org/doc/books/technology/aterm-guide/aterm-guide.html
 
 """
+
+#------------------------------------------------------------------------
+# See caterm.pxd for type definitions
+#------------------------------------------------------------------------
+
 from libc.stdlib cimport malloc, free
+from blaze.blaze cimport *
+
 from copy import copy
-
-cdef extern from "Python.h":
-    char* PyString_AsString(object string)
-
-cdef extern from "stdarg.h":
-    ctypedef struct va_list:
-        pass
-    ctypedef struct fake_type:
-        pass
-    void va_start(va_list, void* arg)
-    void* va_arg(va_list, fake_type)
-    void va_end(va_list)
-    fake_type int_type "int"
-
-cdef extern from "stdio.h":
-    ctypedef FILE
-    enum: stdout
-
-cdef extern from "aterm1.h":
-    enum: AT_FREE
-    enum: AT_APPL
-    enum: AT_INT
-    enum: AT_REAL
-    enum: AT_LIST
-    enum: AT_PLACEHOLDER
-    enum: AT_BLOB
-    enum: AT_SYMBOL
-    enum: MAX_ARITY
-
-    ctypedef long MachineWord
-    ctypedef unsigned long HashNumber
-    ctypedef unsigned long header_type
-
-    ctypedef struct __ATerm:
-        header_type header
-        ATerm *next
-
-    ctypedef union ATerm:
-        header_type header
-        __ATerm aterm
-        ATerm* subaterm[MAX_ARITY+3]
-        MachineWord  word[MAX_ARITY+3]
-
-    ctypedef int *FILE
-
-    void ATinit (int argc, char *argv[], ATerm *bottomOfStack)
-    ATbool ATmatch(ATerm t, char *pattern, ...)
-
-    int ATgetType(ATerm t)
-
-    int ATprintf(char *format, ...)
-    int ATfprintf(int stream, char *format, ...)
-    char* ATwriteToString(ATerm t)
-
-    ATerm ATmake(char *pattern, ...)
-    ATerm ATmakeTerm(ATerm pat, ...)
-
-    ATerm ATvmake(char *pat)
-    ATerm ATvmakeTerm(ATerm pat)
-    void  AT_vmakeSetArgs(va_list *args)
-
-    ATerm ATreadFromString(char *string)
-    ATerm ATreadFromSharedString(char *s, int size)
-
-    ATerm ATsetAnnotation(ATerm t, ATerm label, ATerm anno)
-    ATerm ATgetAnnotation(ATerm t, ATerm label)
-
-    void ATsetWarningHandler(void (*handler)(char *format, va_list args))
-    void ATsetErrorHandler(void (*handler)(char *format, va_list args))
-    void ATsetAbortHandler(void (*handler)(char *format, va_list args))
-
-    ATbool ATisEqual(ATerm t1, ATerm t2)
-    ATbool AT_isDeepEqual(ATerm t1, ATerm t2)
-    ATbool ATisEqualModuloAnnotations(ATerm t1, ATerm t2)
-
-    ctypedef enum ATbool:
-        ATfalse = 0
-        ATtrue  = 1
-
-cdef extern from "utils.h":
-    int subterms(ATerm t)
-    ATerm * next_subterm(ATerm t, int i)
-    ATerm * annotations(ATerm t)
 
 # singleton empty ATerm
 cdef ATerm ATEmpty
 
+
+#------------------------------------------------------------------------
+# Dumb aterm library wrappers that handle errors
+#------------------------------------------------------------------------
+
+
+cdef inline ATerm ATreadFromString(char *value) except NULL:
+    print "reading...", value
+    cdef ATerm result = _ATreadFromString(value)
+    if result == ATEmpty:
+        raise InvalidATerm(value)
+    return result
+
+cdef inline ATerm ATmakeInt(int value) except NULL:
+    cdef ATerm result = _ATmakeInt(value)
+    if result == ATEmpty:
+        raise InvalidATerm(value)
+    return result
+
+cdef inline ATerm ATmakeReal(double value) except NULL:
+    cdef ATerm result = _ATmakeReal(value)
+    if result == ATEmpty:
+        raise InvalidATerm(value)
+    return result
+
+
 #------------------------------------------------------------------------
 # Python ATerm wrapper
 #------------------------------------------------------------------------
+
 
 cdef class PyATerm:
 
@@ -109,19 +60,30 @@ cdef class PyATerm:
     cdef object pattern
 
     def __init__(self, pattern):
-        cdef ATerm a
         self.pattern = pattern
+        self._repr = pattern
+
+    @classmethod
+    def from_pattern(cls, pattern):
+        cdef ATerm a
 
         if isinstance(pattern, basestring):
             a = ATreadFromString(pattern)
-            if a == ATEmpty:
-                raise InvalidATerm(pattern)
-            else:
-                self.a = a
-                self._repr = pattern
-                # self._repr = ATwriteToString(a)
+            # self._repr = ATwriteToString(a) # this segfaults
         elif isinstance(pattern, int):
-            self.a = <ATerm?>(<int>pattern)
+            a = ATmakeInt(pattern)
+        elif isinstance(pattern, float):
+            a = ATmakeReal(pattern)
+
+        return cls.from_aterm(<Py_uintptr_t> a, pattern)
+
+    @classmethod
+    def from_aterm(cls, Py_uintptr_t aterm, pattern):
+        cdef ATerm a = <ATerm> aterm
+        cdef PyATerm result = cls(pattern)
+        result.a = <ATerm> aterm
+        ATprotect(&result.a)
+        return result
 
     @property
     def typeof(self):
@@ -142,15 +104,15 @@ cdef class PyATerm:
     def annotations(self):
         return PyATerm(<int>annotations(self.a))
 
-    def aset(self, char* key, char* value):
+    def aset(self, bytes key, bytes value):
         """ Return a new ATerm annotated with the given key,
         value pair """
         cdef ATerm label = ATreadFromString(key)
         cdef ATerm anno = ATreadFromString(value)
         cdef ATerm copy = ATsetAnnotation(self.a, label, anno)
-        return PyATerm(<int>copy)
+        return self.from_aterm(<Py_uintptr_t> copy, value)
 
-    def aget(self, char* key):
+    def aget(self, bytes key):
         """ Query a annotation of the term.  """
         cdef ATerm label = ATreadFromString(key)
         cdef ATerm value = ATgetAnnotation(self.a, label)
@@ -201,6 +163,11 @@ cdef class PyATerm:
             return True
         if res == ATfalse:
             return False
+
+    def __dealloc__(self):
+        "Mark the aterm deletable"
+        # TODO: what if this thing is shared by someone else?
+        ATunprotect(&self.a)
 
     def matches(self, pattern, capture=None):
         """
@@ -304,8 +271,8 @@ STR         = BLOB
 # Toplevel
 #------------------------------------------------------------------------
 
-def aterm(str s):
-    return PyATerm(s)
+def aterm(pattern):
+    return PyATerm.from_pattern(pattern)
 
 def make(template, params=None):
     cdef char* ctemplate = PyString_AsString(template)
