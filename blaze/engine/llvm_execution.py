@@ -83,7 +83,7 @@ class ATermToAstTranslator(visitor.GraphTranslator):
             # print getsource(pyast_function)
             py_ufunc = self.ufunc_builder.compile_to_pyfunc(pyast_function)
 
-            executor = build_executor(py_ufunc, operands, graph)
+            executor = build_executor(py_ufunc, pyast_function, operands, graph)
             self.executors[id(executor)] = executor
 
             if lhs is not None:
@@ -210,7 +210,8 @@ class ATermToAstTranslator(visitor.GraphTranslator):
         return aterm
 
 
-def build_executor(py_ufunc, operands, aterm_subgraph_root, strategy='chunked'):
+def build_executor(py_ufunc, pyast_function, operands,
+                   aterm_subgraph_root, strategy='chunked'):
     """ Build a ufunc and an wrapping executor from a Python AST """
     result_dtype = unannotate_dtype(aterm_subgraph_root)
     operand_dtypes = map(unannotate_dtype, operands)
@@ -220,12 +221,17 @@ def build_executor(py_ufunc, operands, aterm_subgraph_root, strategy='chunked'):
                    argtypes=map(minitype, operand_dtypes))
     ufunc = vectorizer.build_ufunc()
 
+    # Get a string of the operation for debugging
+    return_stat = pyast_function.body[0]
+    operation = getsource(return_stat.value)
+
     # TODO: build an executor tree and substitute where we can evaluate
     executor = executors.ElementwiseLLVMExecutor(
         strategy,
         ufunc,
         operand_dtypes,
         result_dtype,
+        operation=operation,
     )
 
     return executor

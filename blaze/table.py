@@ -284,7 +284,7 @@ class NDArray(Indexable, ArrayNode):
         if isinstance(obj, CArraySource):
             self.data = obj
         else:
-            self.data = CArraySource(obj, params)
+            self.data = CArraySource(data=obj, dshape=dshape, params=params)
 
 
         # Datashape

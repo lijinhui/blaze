@@ -231,6 +231,7 @@ class InstructionGen(MroVisitor):
 
     def _Executor(self, term):
         executor_id, backend, has_lhs = term.annotation.meta
+        has_lhs = has_lhs.label
         executor = self.executors[executor_id.label]
 
         self.visit(term.args)

@@ -50,11 +50,13 @@ cdef build_fake_array(dtype):
 
 cdef class Executor(object):
 
-    cdef object strategy
+    cdef public object strategy
+    cdef public object operation # for debugging and printing
 
-    def __init__(self, strategy):
+    def __init__(self, strategy, operation="<operation>"):
         # assert strategy in ('chunked', 'tiled', 'indexed')
         self.strategy = strategy
+        self.operation = operation
 
     def __call__(self, operands, out_operand):
         "Execute a kernel over the data given the operands and the LHS"
@@ -103,10 +105,12 @@ cdef class Executor(object):
     cdef execute_chunk(self, void **data_pointers, void *out, size_t size):
         raise NotImplementedError
 
+    def __repr__(self):
+        return "Executor(%s, %s)" % (self.strategy, self.operation)
+
 #------------------------------------------------------------------------
 # Numba Executors
 #------------------------------------------------------------------------
-
 
 cdef class ElementwiseLLVMExecutor(Executor):
 
@@ -115,8 +119,8 @@ cdef class ElementwiseLLVMExecutor(Executor):
     cdef object lhs_array
     cdef void *lhs_data
 
-    def __init__(self, strategy, ufunc, dtypes, result_dtype):
-        super(ElementwiseLLVMExecutor, self).__init__(strategy)
+    def __init__(self, strategy, ufunc, dtypes, result_dtype, **kwargs):
+        super(ElementwiseLLVMExecutor, self).__init__(strategy, **kwargs)
         self.ufunc = ufunc
         self.result_dtype = result_dtype
 
@@ -149,6 +153,9 @@ cdef class ElementwiseLLVMExecutor(Executor):
         op = self.lhs_array
         op.data = <char *> out
         op.shape[0] = size
-        print "lhs", hex(<Py_uintptr_t> op.data), size
 
+        # print "lhs", hex(<Py_uintptr_t> op.data), size
         self.ufunc(*self.operands, out=self.lhs_array)
+
+    def __repr__(self):
+        return "LLVMExecutor(%s, %s)" % (self.strategy, self.operation)
