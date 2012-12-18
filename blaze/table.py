@@ -310,7 +310,7 @@ class NDArray(Indexable, ArrayNode):
         if isinstance(obj, CArraySource):
             self.data = obj
         else:
-            self.data = CArraySource(obj, params)
+            self.data = CArraySource(obj, dshape, params)
 
         # children graph nodes
         self.children = []
