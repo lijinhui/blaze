@@ -56,6 +56,15 @@ Disk Backed Array
     [[ 0.  0.]
      [ 0.  0.]]
 
+Iterators
+~~~~~~~~~
+
+::
+
+
+    from blaze import fromiter, params
+    a = fromiter(xrange(10), 'x, float64', params=params(clevel=5))
+
 
 Custom DShapes
 ~~~~~~~~~~~~~~

@@ -4,11 +4,15 @@ from math import sqrt
 from blaze.datashape import dshape
 from blaze.rts.funcs import PythonFn, install, lift
 from blaze.engine import executors
+from blaze import metadata as md
+
 from numexpr import evaluate
-from blaze.ts.ucr_dtw import ucr
 
 from blaze.expr.ops import array_like
 from blaze.metadata import aligned
+
+from blaze.ts.ucr_dtw import ucr
+#from blaze.ooc import linalg
 
 # evaluating this function over a term has a cost, in the future this
 # might be things like calculations for FLOPs associated with the
@@ -20,7 +24,6 @@ zerocost = lambda term: 0
 #------------------------------------------------------------------------
 # Function Library
 #------------------------------------------------------------------------
-
 
 # Anatomy of a Blaze Function Def
 # -------------------------------
@@ -53,13 +56,23 @@ zerocost = lambda term: 0
 #  > input array, if you can't find a better implementaion than that use
 #  > this function implementation!
 
-@lift('Sqrt(<int>)', 'a -> float32')
-def pyadd(a):
-    return sqrt(a)
+#------------------------------------------------------------------------
 
-@lift('dtw(Array(), Array(), <term>, <term>)', '(a,a,float,int) -> b')
+@lift('dtw(Array(), Array(), <term>, <term>)', '(a,a,float,int) -> b', {
+    'types' : {'a': array_like},
+    'metadata': {},
+})
 def dtw(d1, d2, s, n):
     return ucr.dtw(d1, d2, s, n)
+
+@lift('dot(Array(), Array())', '(a,a) -> a', {
+    'types'    : {'a' : array_like},
+    'metadata' : {'a' : md.c_contigious},
+})
+def dot(a1, a2):
+    return linalg.dot(a1, a2)
+
+#------------------------------------------------------------------------
 
 @lift('Add(<term>,<term>)', '(a,a) -> a')
 def add(a, b):
@@ -71,6 +84,7 @@ def add(a, b):
 })
 def multiply(a, b):
     return np.multipy(a, b)
+
 
 @lift('Pow(<term>,<term>)', '(a,a) -> a', {
     'types'   : {'a': array_like},

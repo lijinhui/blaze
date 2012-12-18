@@ -1,13 +1,12 @@
+import numpy as np
 from blaze import dshape
 from blaze import NDTable, Table, NDArray, Array
 
 def test_all_construct():
-    expected_ds = dshape('3, int')
+    # Assert that the pretty pritner works for all of the
+    # toplevel structures
 
-    a = NDTable([1,2,3])
-    str(a)
-    repr(a)
-    a.datashape._equal(expected_ds)
+    expected_ds = dshape('3, int')
 
     a = NDArray([1,2,3])
     str(a)
@@ -19,7 +18,16 @@ def test_all_construct():
     repr(a)
     a.datashape._equal(expected_ds)
 
-    #a = Table([1,2,3])
-    #str(a)
-    #repr(a)
+
+    a = NDTable([(1, 1)])
+    str(a)
+    repr(a)
     #a.datashape._equal(expected_ds)
+
+    a = Table([(1, 1)])
+    str(a)
+    repr(a)
+    #a.datashape._equal(expected_ds)
+
+def test_record():
+    data = NDTable([(1, 2.1)], '1, Record(x=int32, y=float)')

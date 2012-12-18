@@ -4,27 +4,37 @@ from urlparse import urlparse
 from params import params, to_cparams
 from params import params as _params
 from sources.sql import SqliteSource
-from sources.chunked import CArraySource
+from sources.chunked import CArraySource, CTableSource
 
-from table import NDArray, Array
+from table import NDArray, Array, NDTable, Table
 from blaze.datashape.coretypes import from_numpy, to_numpy, TypeVar, Fixed
 from blaze import carray, dshape as _dshape
 
 import numpy as np
 
-def open(uri=None):
+def open(uri=None, mode='a'):
     """Open a Blaze object via an `uri` (Uniform Resource Identifier).
-    
+
     Parameters
     ----------
     uri : str
         Specifies the URI for the Blaze object.  It can be a regular file too.
 
+    mode : the open mode (string)
+        Specifies the mode in which the object is opened.  The supported
+        values are:
+
+          * 'r' for read-only
+          * 'w' for emptying the previous underlying data
+          * 'a' for allowing read/write on top of existing data
+
     Returns
     -------
-    out : an Array object.
+    out : an Array or Table object.
 
     """
+    ARRAY = 1
+    TABLE = 2
 
     if uri is None:
         source = CArraySource()
@@ -35,20 +45,32 @@ def open(uri=None):
             path = os.path.join(uri.netloc, uri.path[1:])
             parms = params(storage=path)
             source = CArraySource(params=parms)
+            structure = ARRAY
+
+        if uri.scheme == 'ctable':
+            path = os.path.join(uri.netloc, uri.path[1:])
+            parms = params(storage=path)
+            source = CTableSource(params=parms)
+            structure = TABLE
 
         elif uri.scheme == 'sqlite':
             path = os.path.join(uri.netloc, uri.path[1:])
             parms = params(storage=path or None)
             source = SqliteSource(params=parms)
+            structure = TABLE
 
         else:
             # Default is to treat the URI as a regular path
             parms = params(storage=uri.path)
             source = CArraySource(params=parms)
+            structure = ARRAY
 
     # Don't want a deferred array (yet)
     # return NDArray(source)
-    return Array(source)
+    if structure == ARRAY:
+        return Array(source)
+    elif structure == TABLE:
+        return NDTable(source)
 
 # These are like NumPy equivalent except that they can allocate
 # larger than memory.

@@ -20,9 +20,9 @@ from layouts.scalar import ChunkedL
 from layouts.query import retrieve, write
 
 from expr.graph import ArrayNode, injest_iterable
-from expr import metadata as md
+import metadata as md
 
-from sources.chunked import CArraySource
+from sources.chunked import CArraySource, CTableSource
 from sources.canonical import ArraySource
 
 from printer import generic_str, generic_repr
@@ -37,6 +37,9 @@ DELAYED  = 2
 #------------------------------------------------------------------------
 # Indexable
 #------------------------------------------------------------------------
+
+# TODO: Indexable seems to be historical design notes, none of it
+# is used in live code
 
 class Indexable(object):
     """
@@ -99,9 +102,6 @@ class Indexable(object):
         """
         raise NotImplementedError
 
-    def __index__(self):
-        raise NotImplementedError()
-
     def global_id(self):
         "Get a unique global id for this source"
         # TODO: make it global :)
@@ -116,24 +116,28 @@ class Array(Indexable):
     Manifest array, does not create a graph. Forces evaluation on every
     call.
 
-    Parameters:
+    Parameters
+    ----------
 
-        :obj: A list of byte providers, other NDTables or a Python object.
+        obj : A list of byte providers, other NDTables or a Python object.
 
-    Optional:
+    Optional
+    --------
 
-        :datashape: Manual datashape specification for the table,
-                    if None then shape will be inferred if
-                    possible.
+        datashape : dshape
+            Manual datashape specification for the table, if None then
+            shape will be inferred if possible.
+        metadata :
+            Manual datashape specification for the table, if None then
+            shape will be inferred if possible.
 
-        :metadata: Explicit metadata annotation.
-
-    Usage:
+    Usage
+    -----
 
         >>> Array([1,2,3])
         >>> Array([1,2,3], dshape='3, int32')
         >>> Array([1,2,3], dshape('3, int32'))
-        >>> Array([1,2,3], params=params(clevel=3, storage='a'))
+        >>> Array([1,2,3], params=params(clevel=3, storage='file'))
 
     """
 
@@ -146,21 +150,11 @@ class Array(Indexable):
     def __init__(self, obj, dshape=None, metadata=None, layout=None,
             params=None):
 
-        data = None
-
-        # Values
-        # ------
-        # Mimic NumPy behavior in that we have a variety of
-        # possible arguments to the first argument which result
-        # in different behavior for the values.
-
-        if isinstance(obj, ByteProvider):
-            self.data = obj
-        else:
-            self.data = CArraySource(obj, params=params)
-
         # Datashape
         # ---------
+
+        if isinstance(dshape, basestring):
+            dshape = _dshape(dshape)
 
         if not dshape:
             # The user just passed in a raw data source, try
@@ -172,6 +166,17 @@ class Array(Indexable):
             # data, check if it makes sense
             CArraySource.check_datashape(obj, given_dshape=dshape)
             self._datashape = dshape
+
+        # Values
+        # ------
+        # Mimic NumPy behavior in that we have a variety of
+        # possible arguments to the first argument which result
+        # in different behavior for the values.
+
+        if isinstance(obj, ByteProvider):
+            self.data = obj
+        else:
+            self.data = CArraySource(obj, params=params)
 
         # children graph nodes
         self.children = []
@@ -251,13 +256,6 @@ class Array(Indexable):
         return generic_repr('Array', self, deferred=False)
 
 
-class Table(Indexable):
-    pass
-
-#------------------------------------------------------------------------
-# Deferred
-#------------------------------------------------------------------------
-
 class NDArray(Indexable, ArrayNode):
     """
     Deferred array, operations on this array create a graph built
@@ -271,7 +269,7 @@ class NDArray(Indexable, ArrayNode):
     ]
 
     def __init__(self, obj, dshape=None, metadata=None, layout=None,
-            params=None):
+                 params=None):
 
         data = None
 
@@ -286,9 +284,11 @@ class NDArray(Indexable, ArrayNode):
         else:
             self.data = CArraySource(data=obj, dshape=dshape, params=params)
 
-
         # Datashape
         # ---------
+
+        if isinstance(dshape, basestring):
+            dshape = _dshape(dshape)
 
         if not dshape:
             # The user just passed in a raw data source, try
@@ -300,6 +300,17 @@ class NDArray(Indexable, ArrayNode):
             # data, check if it makes sense
             CArraySource.check_datashape(obj, given_dshape=dshape)
             self._datashape = dshape
+
+        # Values
+        # ------
+        # Mimic NumPy behavior in that we have a variety of
+        # possible arguments to the first argument which result
+        # in different behavior for the values.
+
+        if isinstance(obj, CArraySource):
+            self.data = obj
+        else:
+            self.data = CArraySource(obj, params)
 
         # children graph nodes
         self.children = []
@@ -401,7 +412,66 @@ class NDArray(Indexable, ArrayNode):
 #   tostring     : function
 #   __len__      : function
 #   __getitem__  : function
-#   __index__    : function
+
+
+class Table(Indexable):
+
+    eclass = MANIFEST
+    _metaheader = [
+        md.manifest,
+        md.tablelike,
+    ]
+
+    def __init__(self, obj, dshape=None, metadata=None, layout=None,
+            params=None):
+
+        # Datashape
+        # ---------
+
+        if isinstance(dshape, basestring):
+            dshape = _dshape(dshape)
+
+        if not dshape:
+            # The user just passed in a raw data source, try
+            # and infer how it should be layed out or fail
+            # back on dynamic types.
+            self._datashape = dshape = CTableSource.infer_datashape(obj)
+        else:
+            # The user overlayed their custom dshape on this
+            # data, check if it makes sense
+            CTableSource.check_datashape(obj, given_dshape=dshape)
+            self._datashape = dshape
+
+        # Source
+        # ------
+
+        if isinstance(obj, ByteProvider):
+            self.data = obj
+        else:
+            self.data = CTableSource(obj, dshape=dshape, params=params)
+
+        # children graph nodes
+        self.children = []
+
+        self.space = Space(self.data)
+
+        # Layout
+        # ------
+
+        if layout:
+            self._layout = layout
+        elif not layout:
+            self._layout = self.data.default_layout()
+
+        # Metadata
+        # --------
+
+        self._metadata  = NDTable._metaheader + (metadata or [])
+
+        # Parameters
+        # ----------
+        self.params = params
+
 
 class NDTable(Indexable, ArrayNode):
     """
@@ -409,23 +479,6 @@ class NDTable(Indexable, ArrayNode):
     how to access elements, while ArrayNode contains the graph
     related logic for building expression trees with this table
     as an element.
-
-    Parameters:
-
-        obj       : A list of byte providers, other NDTables or
-                    a Python list.
-
-    Optional:
-
-        datashape : Manual datashape specification for the table,
-                    if None then shape will be inferred if
-                    possible.
-
-        index     : The index for the datashape and all nested
-                    structures, if None then AutoIndex is used.
-
-        metadata  : Explicit metadata annotation.
-
     """
 
     eclass = DELAYED
@@ -434,44 +487,59 @@ class NDTable(Indexable, ArrayNode):
         md.tablelike,
     ]
 
-    def __init__(self, obj, dshape=None, index=None, metadata=None):
-        self._datashape = dshape
-        self._metadata  = NDTable._metaheader + (metadata or [])
+    #------------------------------------------------------------------------
+    # Properties
+    #------------------------------------------------------------------------
 
-        if isinstance(dshape, str):
-            # run it through the parser
+    def __init__(self, obj, dshape=None, metadata=None, layout=None,
+            params=None):
+
+        # Datashape
+        # ---------
+
+        if isinstance(dshape, basestring):
             dshape = _dshape(dshape)
 
-        # Resolve the values
-        # ------------------
-        if isinstance(obj, Space):
-            self.space = obj
-            self.children = set(self.space.subspaces)
-        else:
-            spaces = injest_iterable(obj)
-            self.space = Space(*spaces)
-            self.children = set(self.space.subspaces)
-
-        # Resolve the shape
-        # -----------------
         if not dshape:
             # The user just passed in a raw data source, try
             # and infer how it should be layed out or fail
             # back on dynamic types.
-            self._datashape = CArraySource.infer_datashape(obj)
+            self._datashape = dshape = CTableSource.infer_datashape(obj)
         else:
             # The user overlayed their custom dshape on this
             # data, check if it makes sense
-            if CArraySource.check_datashape(obj, given_dshape=dshape):
-                self._datashape = dshape
-            else:
-                raise ValueError("Datashape is inconsistent with source")
+            CTableSource.check_datashape(obj, given_dshape=dshape)
+            self._datashape = dshape
 
-        self._layout = None
+        # Source
+        # ------
 
-    #------------------------------------------------------------------------
-    # Properties
-    #------------------------------------------------------------------------
+        if isinstance(obj, ByteProvider):
+            self.data = obj
+        else:
+            self.data = CTableSource(obj, dshape=dshape, params=params)
+
+        # children graph nodes
+        self.children = []
+
+        self.space = Space(self.data)
+
+        # Layout
+        # ------
+
+        if layout:
+            self._layout = layout
+        elif not layout:
+            self._layout = self.data.default_layout()
+
+        # Metadata
+        # --------
+
+        self._metadata  = NDTable._metaheader + (metadata or [])
+
+        # Parameters
+        # ----------
+        self.params = params
 
     @property
     def datashape(self):
@@ -508,24 +576,3 @@ def infer_eclass(a,b):
         return MANIFEST
     if (a,b) == (DELAYED, DELAYED):
         return DELAYED
-
-#------------------------------------------------------------------------
-# Argument Munging
-#------------------------------------------------------------------------
-
-def cast_arguments(obj):
-    """
-    Handle different sets of arguments for constructors.
-    """
-
-    if isinstance(obj, DataShape):
-        return obj
-
-    elif isinstance(obj, list):
-        return Fixed(len(obj))
-
-    elif isinstance(obj, tuple):
-        return Fixed(len(obj))
-
-    elif isinstance(obj, NDTable):
-        return obj.datashape

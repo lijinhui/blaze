@@ -5,6 +5,7 @@
 
 from numpy import dtype
 from string import letters
+from collections import namedtuple
 
 DEBUG = True
 
@@ -74,36 +75,33 @@ class TypeVar(object):
 
 class TypeCon(object):
 
-    def __init__(self, cons, types):
-        self.cons = cons
+    def __init__(self, cons, types, infix=False):
+        self.cons  = cons
         self.types = types
         self.arity = len(self.types)
+        self.infix = infix
 
     def __str__(self):
-        if self.arity == 0:
-            return self.cons
-
-        elif self.arity == 2:
+        if self.infix:
             return "(%s %s %s)" % (
                 str(self.types[0]),
                 self.cons,
                 str(self.types[1])
             )
-
+        elif self.arity == 0:
+            return self.cons
         else:
             return "%s %s" % (self.cons, ' '.join(self.types))
 
     def pprint(self, freev):
-        if self.arity == 0:
-            return self.cons
-
-        elif self.arity == 2:
+        if self.infix:
             return "(%s %s %s)" % (
                 (self.types[0]).pprint(freev),
                 self.cons,
                 (self.types[1]).pprint(freev)
             )
-
+        elif self.arity == 0:
+            return self.cons
         else:
             reprs = [t.pprint(freev) for t in self.types]
             return "%s %s" % (self.cons, ' '.join(reprs))
@@ -130,22 +128,39 @@ Integer = TypeCon("int", [])
 # -------------
 # Γ ⊢ (α -> β)
 
-Function = lambda dom, cod: TypeCon('->', (dom, cod))
+Function = lambda dom, cod: TypeCon('->', (dom, cod), infix=True)
+
+#------------------------------------------------------------------------
+# Evaluation
+#------------------------------------------------------------------------
 
 def tyeval(node, env, ctx=None):
     ctx = ctx or set()
     assert isinstance(ctx, set)
 
+
+    # a : t ∈ Γ
+    # ----------  [Var]
+    # Γ ⊢ a : t
+
     if isinstance(node, Atom):
         return typeof(node.name, env, ctx)
 
+    # Γ ⊢ f : a    Γ ⊢ g : a -> b
+    # ---------------------------  [App]
+    #        Γ ⊢ g f : b
+
     elif isinstance(node, App):
-        fn = tyeval(node.fn, env, ctx)
+        fn  = tyeval(node.fn, env, ctx)
         arg = tyeval(node.arg, env, ctx)
 
         out = TypeVar()
         unify(env, Function(arg, out), fn)
         return out
+
+    #
+    # [Abs]
+    #
 
     elif isinstance(node, Lambda):
         dom = TypeVar()
@@ -159,8 +174,7 @@ def tyeval(node, env, ctx=None):
         cod = tyeval(node.body, scope, bindings)
         return Function(dom, cod)
 
-    raise Exception("Not in scope: type constructor or variable %s"
-        % (node))
+    raise Exception("Not in scope: type constructor or variable %s" % (node))
 
 def typeof(term, env, bindings):
     if term in env:
@@ -189,7 +203,7 @@ def gen(ty, constrs, bindings):
 
     elif isinstance(t, TypeCon):
         conargs = [gen(x, constrs, bindings) for x in t.types]
-        return TypeCon(t.cons, conargs)
+        return TypeCon(t.cons, conargs, t.infix)
 
 def constraints(t, bindings):
     constrs = {}
@@ -209,8 +223,6 @@ def unify(env, t1, t2):
         if a != b:
             if occur1(a, b):
                 raise TypeError("Recursive types are not supported")
-            #x = TypeVar()
-            #x = a._unify(b)
             a.ty = b
             return {a: b}
 
@@ -313,15 +325,56 @@ def pprint(ty):
 # Toplevel
 #------------------------------------------------------------------------
 
-def atnf(self):
-    """ algebraic type normal form """
-    pass
-
 def infer(env, term):
+    """
+    Parameters
+    ----------
+    env : dict
+        environment of lexically-bound variables with types
+    term: object
+        environment of lexically-bound variables with types
+
+    Returns
+    -------
+
+    Usage
+    -----
+    """
     t = tyeval(term, env)
     if DEBUG:
         print ('%s :: %s' % (str(term), pprint(t)))
     return t
+
+def beta(node):
+    """ beta reduction"""
+    pass
+
+def eta(node):
+    """ eta reduction"""
+    pass
+
+def atnf(node):
+    """ algebraic type normal form
+
+    This is confluent until unless we permit recursive types, which we
+    don't::
+
+        (a + (b + c))  ~>  ((a + b) + c)
+        (a * (b * c))  ~>  ((a * b) * c)
+        ((a + b) * c)  ~>  (a * c) + (b * c)
+    """
+
+    if isinstance(node, Atom):
+        return node
+
+    elif isinstance(node, App):
+        if node.fn == 'sum':
+            raise NotImplementedError
+        elif node.fn == 'product':
+            raise NotImplementedError
+
+    elif isinstance(node, Lambda):
+        return atnf(node.body)
 
 #------------------------------------------------------------------------
 # Syntax Buidlers
@@ -339,7 +392,8 @@ def lam(vars, body):
         body = Lambda(v, body)
     return body
 
-sumt = lambda x,y: App(App(Atom("sum"), x), y)
+def sumt(x,y):
+    return App(App(Atom("sum"), x), y)
 
 # disjoint unions
 def union(*xs):
@@ -349,51 +403,29 @@ def union(*xs):
 def product(x,y):
     return App(App(Atom("product"), x), y)
 
-# uncurred type constructors, behave like Python
-def uncurry1(*xs):
-    t1 = TypeVar()
-    return Function(t1, product_t)
-
-def uncurry2(*xs):
-    t1 = TypeVar()
-    t2 = TypeVar()
-    return Function(t1, Function(t2, product_t))
 
 if __name__ == '__main__':
+    var1 = TypeVar()
+    var2 = TypeVar()
 
-    # Product Types
-    #--------------
+    product_t = TypeCon("x", (var1, var2), infix=True)
+    sum_t     = TypeCon("+", (var1, var2), infix=True)
+    dynamic_t = TypeCon("?", [])
 
-    p1 = TypeVar()
-    p2 = TypeVar()
+    # Example Env
+    #------------
 
-    product_t = TypeCon("x", (p1, p2))
-
-    # Sum Types
-    #----------
-
-    p1 = TypeVar()
-    p2 = TypeVar()
-
-    sum_t     = TypeCon("+", (p1, p2))
-
-    dynamic = TypeCon("dynamic", [])
-    null = TypeCon("null", [])
-
-    BlazeEnv = {
-        "product" : uncurry2(product_t),
-        "sum"     : uncurry2(sum_t),
-        "?"       : dynamic,
-        #"null'    : dynamic,
+    env = {
+        "?"       : dynamic_t,
+        "product" : Function(var1, Function(var2, product_t)),
+        "sum"     : Function(var1, Function(var2, sum_t)),
     }
 
     # -- Example 1 --
 
-    #x = lam(['x', 'y'], product(Atom('x'), Atom('y'))),
     x = lam(['x', 'y'], product(Atom('x'), Atom('y')))
-    inferred = infer(BlazeEnv,x)
-
-    assert pprint(inferred) == '(a -> (b -> (c x d)))'
+    inferred = infer(env,x)
+    assert pprint(inferred) == '(a -> (b -> (b x a)))'
 
     # -- Example 2 --
 
@@ -401,18 +433,17 @@ if __name__ == '__main__':
         lam(['x', 'y', 'z'], product(Atom('x'), Atom('z'))),
         [Atom('1')]
     )
-    inferred = infer(BlazeEnv,x)
+    inferred = infer(env,x)
     assert pprint(inferred) == '(a -> (b -> (b x int)))'
 
     # -- Example 3 --
 
     x = app(Atom("product"), [Atom("?"), Atom("1")])
-    inferred = infer(BlazeEnv, x)
-
+    inferred = infer(env, x)
     assert pprint(inferred) == '(? x int)'
 
     # -- Example 3 --
 
     x = app(Atom("sum"), [Atom("?"), Atom("1")])
-    inferred = infer(BlazeEnv, x)
+    inferred = infer(env, x)
     assert pprint(inferred) == '(? + int)'
