@@ -165,7 +165,7 @@ def test_module_parse():
     assert type(mod.A) is DataShape
 
 def test_parse_blob_varchar():
-    p1 = parse('2, 3, varchar')
+    p1 = parse('2, 3, varchar(5)')
     p2 = parse('2, 3, blob')
 
     assert type(p1[2]) is Varchar

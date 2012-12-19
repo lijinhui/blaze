@@ -140,12 +140,13 @@ class Blob(Primitive):
 class Varchar(Primitive):
     """ Blob type, small variable length string """
 
-    def __str__(self):
-        return 'varchar'
+
+    def __init__(self, maxlen):
+        assert isinstance(maxlen, Integer)
+        self.maxlen = maxlen.val
 
     def __repr__(self):
-        # emulate numpy
-        return ''.join(["dshape(\"", str(self), "\")"])
+        return expr_string('varchar', [self.maxlen])
 
 #------------------------------------------------------------------------
 # Base Types
@@ -637,7 +638,6 @@ top = Top()
 dynamic = Dynamic()
 NullRecord = Record()
 
-varchar = Varchar()
 blob = Blob()
 
 Stream = Range(Integer(0), None)
@@ -646,7 +646,6 @@ Type.register('NA', Null)
 Type.register('Stream', Stream)
 Type.register('?', Dynamic)
 
-Type.register('varchar', varchar)
 Type.register('blob', blob)
 
 # Top should not be user facing... but for debugging useful

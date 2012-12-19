@@ -10,7 +10,7 @@ from string import maketrans, translate
 from collections import OrderedDict, Iterable
 
 from coretypes import Integer, TypeVar, Record, Enum, Type, DataShape, \
-    Range, Either, Fixed
+    Range, Either, Fixed, Varchar
 
 syntax_error = """
   File {filename}, line {lineno}
@@ -107,6 +107,7 @@ class Translate(Visitor):
             'Enum'     : Enum,
             'Range'    : Range,
             'Either'   : Either,
+            'varchar'  : Varchar,
         }
         internals.update(Type._registry)
 
