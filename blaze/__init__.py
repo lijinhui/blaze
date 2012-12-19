@@ -12,9 +12,13 @@ from table import Array, Table, NDArray, NDTable
 array   = Array
 ndarray = NDArray
 dtype   = dshape
+from numpy import nan
 
 from params import params
-from toplevel import open, zeros, ones, fromiter
+from toplevel import *
+from toplevel import (blaze_all as all,
+                      blaze_any as any,
+                      blaze_abs as abs)
 
 # Shorthand namespace dump
 from datashape.shorthand import *
