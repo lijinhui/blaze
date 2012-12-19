@@ -160,7 +160,7 @@ def_macros = [('DEBUG', 0)]
 numpy_path = get_numpy_include_dirs()[0]
 
 blosc_path  = 'blaze/include/blosc/'
-
+desc_path   = "blaze/sources/descriptors/"
 
 carray_source = [
     "blaze/carray/carrayExtension.pyx"
@@ -179,6 +179,12 @@ blosc_depends = [
     blosc_path + "blosc.h",
     blosc_path + "blosclz.h",
     blosc_path + "shuffle.h"
+]
+
+descriptor_depends = [
+    desc_path + "lldescriptors.pxd",
+    desc_path + "lldescriptors.pyx",
+    desc_path + "llindexers.pyx",
 ]
 
 extensions = [
@@ -207,15 +213,18 @@ extensions = [
    Extension(
         "blaze.engine.executors", ["blaze/engine/executors.pyx"],
         include_dirs = [numpy_path],
+        depends=descriptor_depends,
    ),
    Extension(
        "blaze.sources.descriptors.lldescriptors",
        ["blaze/sources/descriptors/lldescriptors.pyx"],
+       depends=descriptor_depends,
        include_dirs = [],
    ),
    Extension(
        "blaze.sources.descriptors.llindexers",
        ["blaze/sources/descriptors/llindexers.pyx"],
+       depends=descriptor_depends,
        include_dirs = [],
    ),
    Extension(
