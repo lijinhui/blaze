@@ -1,3 +1,6 @@
+import operator
+
+import blaze
 from blaze import *
 from blaze.datashape import datashape
 from blaze.engine import pipeline, llvm_execution
@@ -10,7 +13,6 @@ def convert_graph(lazy_blaze_graph):
     context, aterm_graph = p.run_pipeline(lazy_blaze_graph)
     return context["instructions"], context["executors"], context["symbols"]
 
-@skip("Unstable")
 def test_conversion():
     """
     >>> test_conversion()
@@ -28,10 +30,9 @@ def test_conversion():
     print instructions
     print sorted(symbols)
 
-@skip("Unstable")
-def test_execution():
+def test_execution_simple():
     """
-    >>> test_execution()
+    >>> test_execution_simple()
     [  46.   62.   80.  100.]
     """
     a = NDArray([1, 2, 3, 4], datashape('4, float32'))
@@ -47,9 +48,32 @@ def test_execution():
     # print out.data.ca.leftover_array.dtype
     print out.data.ca
 
+def test_execution():
+    """
+    >>> test_execution()
+    """
+    for size in [1, 3, 100, 100000]:
+        for op in [operator.add, operator.mul]:
+            for dtype in ["float32", "float64", "int32", "int64"]:
+                dshape = datashape("%d, %s" % (size, dtype))
+
+                a = NDArray(range(size), dshape)
+                b = NDArray(range(size, size * 2), dshape)
+
+                # blaze.zeros(dshape) returns an Array
+                out = NDArray([0] * size, dshape)
+                out[:] = op(a, b)
+
+                c1 = np.arange(size, dtype=dtype)
+                c2 = np.arange(size, size * 2, dtype=dtype)
+                out2 = carray.carray(op(c1, c2), dtype=np.dtype(dtype))
+
+                assert blaze.allclose(out, out2), (size, op, dshape)
+
+
 if __name__ == '__main__':
 #   test_conversion()
-#   test_execution()
+    test_execution()
 
     import doctest
     doctest.testmod()

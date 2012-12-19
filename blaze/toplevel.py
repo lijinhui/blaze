@@ -13,7 +13,8 @@ from blaze import carray, dshape as _dshape
 import numpy as np
 
 # TODO: we'd like to distinguish between opening in Deferred or
-# Immediete mode
+# Immediate mode
+__all__ = ["open", "zeros", "ones", "fromiter", "loadtxt", "allclose"]
 
 def open(uri=None, mode='a'):
     """Open a Blaze object via an `uri` (Uniform Resource Identifier).
@@ -178,3 +179,86 @@ def fromiter(iterable, dshape, params=None):
 def loadtxt(filetxt, storage):
     """ Convert txt file into Blaze native format """
     Array(np.loadtxt(filetxt), params=params(storage=storage))
+
+def _ndarray(a):
+    if not isinstance(a, NDArray):
+        a = NDArray(a)
+    return a
+
+def allclose(a, b, rtol=1e-05, atol=1e-08):
+    """
+    Returns True if two arrays are element-wise equal within a tolerance.
+
+    The tolerance values are positive, typically very small numbers.  The
+    relative difference (`rtol` * abs(`b`)) and the absolute difference
+    `atol` are added together to compare against the absolute difference
+    between `a` and `b`.
+
+    If either array contains one or more NaNs, False is returned.
+    Infs are treated as equal if they are in the same place and of the same
+    sign in both arrays.
+
+    Parameters
+    ----------
+    a, b : array_like
+        Input arrays to compare.
+    rtol : float
+        The relative tolerance parameter (see Notes).
+    atol : float
+        The absolute tolerance parameter (see Notes).
+
+    Returns
+    -------
+    allclose : bool
+        Returns True if the two arrays are equal within the given
+        tolerance; False otherwise.
+
+    See Also
+    --------
+    all, any, alltrue, sometrue
+
+    Notes
+    -----
+    If the following equation is element-wise True, then allclose returns
+    True.
+
+     absolute(`a` - `b`) <= (`atol` + `rtol` * absolute(`b`))
+
+    The above equation is not symmetric in `a` and `b`, so that
+    `allclose(a, b)` might be different from `allclose(b, a)` in
+    some rare cases.
+
+    Examples
+    --------
+    >>> blaze.allclose([1e10,1e-7], [1.00001e10,1e-8])
+    False
+    >>> blaze.allclose([1e10,1e-8], [1.00001e10,1e-9])
+    True
+    >>> blaze.allclose([1e10,1e-8], [1.0001e10,1e-9])
+    False
+    >>> blaze.allclose([1.0, np.nan], [1.0, np.nan])
+    False
+    """
+    a, b = _ndarray(a), _ndarray(b)
+    return blaze_all(blaze_abs(a - b) <= atol + rtol * blaze_abs(b)).eval()
+
+def blaze_all(a, axis=None, out=None):
+    """
+    Test whether all array elements along a given axis evaluate to True.
+    """
+    a = _ndarray(a)
+    return a.all(axis, out).eval()
+
+def blaze_any(a, axis=None, out=None):
+    """
+    Test whether any array elements along a given axis evaluate to True.
+    """
+    a = _ndarray(a)
+    return a.any(axis, out).eval()
+
+def blaze_abs(a, axis=None, out=None):
+    """
+    Returns the absolute value element-wise.
+    """
+    a = _ndarray(a)
+    return a.abs(axis, out).eval()
