@@ -4,7 +4,7 @@ and units of data.
 """
 
 from blaze.sources.descriptors.byteprovider import ByteProvider
-from blaze.datashape import Fixed, dynamic, string, pyobj
+from blaze.datashape import Fixed, dynamic, pyobj
 from blaze.datashape.coretypes import from_numpy, to_numpy
 from blaze.byteproto import CONTIGUOUS, CHUNKED, STREAM, ACCESS_ALLOC
 
@@ -115,7 +115,7 @@ class ByteSource(ByteProvider):
         Just passing in bytes probably means string unless
         dshape otherwise specified.
         """
-        return string
+        raise NotImplementedError
 
     def write(self, offset, wbytes):
         raise NotImplementedError

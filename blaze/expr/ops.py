@@ -18,7 +18,7 @@ uints     = set([C.uint8, C.uint16, C.uint32, C.uint64])
 floats    = set([C.float32, C.float64])
 complexes = set([C.complex64, C.complex128])
 bools     = set([C.bool_])
-string    = set([C.string])
+#string    = set([C.string])
 
 discrete   = ints | uints
 continuous = floats | complexes
@@ -27,7 +27,7 @@ numeric    = discrete | continuous
 array_like, tabular_like = Array, Table
 indexable = set([array_like, tabular_like])
 
-universal = set([C.top]) | numeric | indexable | string
+universal = set([C.top]) | numeric | indexable
 
 #------------------------------------------------------------------------
 # Basic Scalar Arithmetic

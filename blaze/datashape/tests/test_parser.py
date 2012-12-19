@@ -124,7 +124,7 @@ def test_parse_either():
 def test_custom_record():
 
     class Stock1(RecordDecl):
-        name   = string
+        name   = string(25)
         open   = float_
         close  = float_
         max    = int64
@@ -136,23 +136,6 @@ def test_custom_record():
             return (self.min + self.max)/2
 
     assert Stock1.mid
-
-@skip
-def test_custom_record_infer():
-
-    class Stock2(RecordDecl):
-        name   = string
-        open   = float_
-        close  = float_
-        max    = int64
-        min    = int64
-        volume = float_
-
-        @derived()
-        def mid(self):
-            return (self.min + self.max)/2
-
-    assert Stock2.mid
 
 @skip
 def test_module_parse():
@@ -170,3 +153,14 @@ def test_parse_blob_varchar():
 
     assert type(p1[2]) is Varchar
     assert type(p2[2]) is Blob
+
+    # Deconstructing the type
+    assert p1[2].maxlen == 5
+
+def test_parse_string():
+    p1 = parse('2, 3, string(5)')
+
+    assert type(p1[2]) is String
+
+    # Deconstructing the type
+    assert p1[2].fixlen == 5

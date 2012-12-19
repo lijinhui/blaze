@@ -9,7 +9,8 @@ from collections import Iterable
 from blaze.expr import nodes, catalog
 from blaze.datashape import coretypes
 from blaze.sources.canonical import PythonSource
-from blaze.datashape.coretypes import int_, float_, string, top, dynamic
+from blaze.datashape.coretypes import int_, float_, top, dynamic,\
+    String
 
 # Type checking and unification
 from blaze.datashape.unification import unify
@@ -87,7 +88,7 @@ def typeof(obj):
     elif typ is FloatNode:
         return float_
     elif typ is StringNode:
-        return string
+        raise NotImplementedError
     elif typ is dynamic:
         return top
     else:
@@ -662,10 +663,10 @@ class Literal(ExpressionNode):
 
 class StringNode(Literal):
     vtype     = str
-    datashape = string
+    datashape = String
     kind      = VAL
 
-    datashape = coretypes.string
+    datashape = coretypes.String
 
     @property
     def data(self):
