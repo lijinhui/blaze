@@ -37,5 +37,5 @@ PyArray_ReadMethods = [
     'flatten', 'getfield', 'item', 'max', 'mean', 'min', 'nbytes',
     'newbyteorder', 'nonzero', 'prod', 'ptp', 'ravel', 'repeat', 'reshape',
     'resize', 'round', 'searchsorted', 'setasflat', 'sort', 'squeeze', 'std',
-    'sum', 'swapaxes', 'take', 'trace', 'transpose', 'var', 'view'
+    'sum', 'swapaxes', 'take', 'trace', 'transpose', 'var', 'view', 'abs',
 ]

@@ -13,6 +13,9 @@ def convert_graph(lazy_blaze_graph):
     context, aterm_graph = p.run_pipeline(lazy_blaze_graph)
     return context["instructions"], context["executors"], context["symbols"]
 
+def print_data(a):
+    print a.data.ca
+
 def test_conversion():
     """
     >>> test_conversion()
@@ -46,7 +49,12 @@ def test_execution_simple():
     # print list(out.data.ca), hex(out.data.ca.leftover_array.ctypes.data)
     # print "*" * 100
     # print out.data.ca.leftover_array.dtype
-    print out.data.ca
+    print_data(out)
+
+def test_abs():
+    a = NDArray([1, 2, -6, 4], datashape('4, float32'))
+    result = blaze.abs(a).eval()
+    print_data(result)
 
 def test_execution():
     """
@@ -72,6 +80,8 @@ def test_execution():
 
 
 if __name__ == '__main__':
+    print blaze.zeros(datashape("4, float32")).datashape
+    test_abs()
 #   test_conversion()
     test_execution()
 

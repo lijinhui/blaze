@@ -186,7 +186,7 @@ def injest_iterable(args, depth=0, force_homog=False):
                     elif isinstance(a, nodes.Node):
                         ret.append(a)
                     else:
-                        raise TypeError("Unknown type")
+                        raise TypeError("Unknown type: %s" % (a,))
                 return ret
 
         else:
@@ -535,8 +535,9 @@ class Op(ExpressionNode):
     kind = OP
 
     is_arithmetic = False
+    is_math = False
 
-    def __init__(self, op, operands):
+    def __init__(self, op, operands, kwargs=None):
         self.op = op
         self.children = operands
         self.operands = operands

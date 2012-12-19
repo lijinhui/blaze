@@ -94,7 +94,7 @@ class Instruction(object):
         self.datashape = datashape
 
     def execute(self, operands, lhs):
-        self.fn(operands, lhs)
+        return self.fn(operands, lhs)
 
     def __repr__(self):
         # with output types
@@ -174,7 +174,7 @@ class InstructionGen(MroVisitor):
         elif label == 'Assign':
             return self._Assign(term)
         else:
-            raise NotImplementedError
+            raise NotImplementedError(term)
 
     def _Arithmetic(self, term):
         # All the function signatures are of the form
@@ -286,13 +286,23 @@ class BlazeVisitor(MroVisitor):
     def Op(self, graph):
         opname = graph.__class__.__name__
 
+        annot = annotation(graph)
+        children = self.visit(graph.children)
+
         if graph.is_arithmetic:
-            return AAppl(ATerm('Arithmetic'),
-                         [ATerm(opname)] + self.visit(graph.children),
-                         annotation=annotation(graph))
+            classifier = 'Arithmetic'
+        elif graph.is_math:
+            classifier = 'Math'
         else:
-            return AAppl(ATerm(opname), self.visit(graph.children),
-                         annotation=annotation(graph))
+            classifier = None
+
+        if classifier:
+            return AAppl(ATerm(classifier),
+                         [ATerm(opname)] + children,
+                         annotation=annot)
+        else:
+            return AAppl(ATerm(opname), children,
+                         annotation=annot)
 
     def Literal(self, graph):
         if graph.vtype == int:

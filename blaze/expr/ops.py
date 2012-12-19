@@ -81,21 +81,7 @@ class Pow(Op):
     nilpotent    = False
     sideffectful = False
 
-    is_arithmetic = True
-
-class Transpose(Op):
-    # -----------------------
-    arity = 1
-    signature = 'a -> a'
-    dom = [array_like]
-    # -----------------------
-
-    identity     = None
-    commutative  = False
-    associative  = False
-    idempotent   = False
-    nilpotent    = True
-    sideffectful = False
+    is_math = True
 
 class Abs(Op):
     # -----------------------
@@ -111,4 +97,19 @@ class Abs(Op):
     nilpotent    = False
     sideffectful = False
 
-    is_arithmetic = True
+    is_math = True
+
+class Transpose(Op):
+    # -----------------------
+    arity = 1
+    signature = 'a -> a'
+    dom = [array_like]
+    # -----------------------
+
+    identity     = None
+    commutative  = False
+    associative  = False
+    idempotent   = False
+    nilpotent    = True
+    sideffectful = False
+

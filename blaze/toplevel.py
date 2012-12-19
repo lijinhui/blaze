@@ -102,6 +102,7 @@ def zeros(dshape, params=None):
         return open(rootdir)
     else:
         source = CArraySource(carray.zeros(shape, dtype, cparams=cparams),
+                              dshape=dshape,
                               params=params)
         return Array(source)
 
@@ -240,25 +241,25 @@ def allclose(a, b, rtol=1e-05, atol=1e-08):
     False
     """
     a, b = _ndarray(a), _ndarray(b)
-    return blaze_all(blaze_abs(a - b) <= atol + rtol * blaze_abs(b)).eval()
+    return blaze_all(blaze_abs(a - b) <= atol + rtol * blaze_abs(b))
 
 def blaze_all(a, axis=None, out=None):
     """
     Test whether all array elements along a given axis evaluate to True.
     """
     a = _ndarray(a)
-    return a.all(axis, out).eval()
+    return a.all(axis=axis, out=out)
 
 def blaze_any(a, axis=None, out=None):
     """
     Test whether any array elements along a given axis evaluate to True.
     """
     a = _ndarray(a)
-    return a.any(axis, out).eval()
+    return a.any(axis=axis, out=out)
 
 def blaze_abs(a, axis=None, out=None):
     """
     Returns the absolute value element-wise.
     """
     a = _ndarray(a)
-    return a.abs(axis, out).eval()
+    return a.abs(axis=axis, out=out)

@@ -3,6 +3,7 @@ import ast
 import numpy as np
 
 import numba
+from numba import transforms as numba_transforms
 from numba import decorators
 from numba.ufunc_builder import UFuncBuilder
 from numba.minivect import minitypes
@@ -81,7 +82,8 @@ class ATermToAstTranslator(visitor.GraphTranslator):
             operands = self.ufunc_builder.operands
             pyast_function = self.ufunc_builder.build_ufunc_ast(result)
             # print getsource(pyast_function)
-            py_ufunc = self.ufunc_builder.compile_to_pyfunc(pyast_function)
+            py_ufunc = self.ufunc_builder.compile_to_pyfunc(pyast_function,
+                                                            globals={'np': np})
 
             executor = build_executor(py_ufunc, pyast_function, operands, graph)
             self.executors[id(executor)] = executor
@@ -108,6 +110,9 @@ class ATermToAstTranslator(visitor.GraphTranslator):
         return None
 
     def match_assignment(self, app):
+        """
+        Handles slice assignemnt, e.g. out[:, :] = non_trivial_expr
+        """
         assert self.nesting_level == 0
 
         lhs, rhs = app.args
@@ -151,24 +156,63 @@ class ATermToAstTranslator(visitor.GraphTranslator):
             app.args = [lhs, rhs]
             return app
 
-    def handle_arithmetic(self, app, op):
-        self.nesting_level += 1
-        self.visit(app.args[1:])
-        self.nesting_level -= 1
+    def handle_math_or_arithmetic(self, app, is_arithmetic):
+        """
+        Rewrite math and arithmetic operations.
+        """
+        opname = app.args[0].label.lower()
+        if is_arithmetic:
+            op = self.opname_to_astop.get(opname, None)
+        else:
+            # TODO: unhack
+            if hasattr(np, opname):
+                op = opname
+            else:
+                op = None
 
+        type = plan.get_datashape(app)
+
+        # Only accept scalars if we are already nested
+        is_array = type.shape or self.nesting_level
+
+        if op and is_array: # args = [op, ...]
+            self.nesting_level += 1
+            self.visit(app.args[1:])
+            self.nesting_level -= 1
+
+            # handle_arithmetic/handle_math
+            if is_arithmetic:
+                return self.handle_arithmetic(app, op)
+            else:
+                return self.handle_math(app, op)
+
+        return self.unhandled(app)
+
+    def handle_arithmetic(self, app, ast_op):
+        """
+        Handle unary and binary arithmetic
+        """
         left, right = self.result
-        result = ast.BinOp(left=left, op=op(), right=right)
+        result = ast.BinOp(left=left, op=ast_op(), right=right)
         return self.register(app, result)
+
+    def handle_math(self, app, math_func_name):
+        """
+        Handle math calls by generate a call like `np.sin(x)`
+        """
+        operand = self.result
+        func = ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()),
+                             attr=math_func_name,
+                             ctx=ast.Load())
+        math_call = ast.Call(func=func, args=[operand], keywords=[],
+                             starargs=None, kwargs=None)
+        return self.register(app, math_call)
 
     def AAppl(self, app):
         "Look for unops, binops and reductions and anything else we can handle"
-        if paterm.matches('Arithmetic;*', app.spine):
-            opname = app.args[0].label.lower()
-            op = self.opname_to_astop.get(opname, None)
-            type = plan.get_datashape(app)
-            is_array = type.shape or self.nesting_level
-            if op is not None and is_array and len(app.args) == 3: # args = [op, lhs, rhs]
-                return self.handle_arithmetic(app, op)
+        is_arithmetic = paterm.matches('Arithmetic;*', app.spine)
+        if is_arithmetic or paterm.matches("Math;*", app.spine):
+            return self.handle_math_or_arithmetic(app, is_arithmetic)
 
         elif paterm.matches('Slice;*', app.spine):
             array, start, stop, step = app.args

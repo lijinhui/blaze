@@ -31,6 +31,8 @@
 import blaze
 from blaze.rts.storage import Heap
 
+import numpy as np
+
 # =================================
 # The main Blaze RTS execution loop
 # =================================
@@ -63,7 +65,12 @@ def execplan(context, plan, symbols):
 
         if not instruction.lhs:
             # lhs = h.allocate(instruction.lhs.size())
-            lhs = blaze.zeros(instruction.datashape)
+            # lhs = blaze.zeros(instruction.datashape)
+            # TODO: replace with sanity
+            dshape = instruction.datashape
+            print dshape.shape, np.dtype(dshape.dtype)
+            mem = np.empty(dshape.shape, dtype=np.dtype(dshape.dtype))
+            lhs = blaze.NDArray(mem, dshape=dshape)
         else:
             lhs = getop(instruction.lhs)
 

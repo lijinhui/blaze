@@ -200,6 +200,10 @@ class DataShape(object):
     def shape(self):
         return self.parameters[:-1]
 
+    @property
+    def dtype(self):
+        return np.dtype(self.parameters[-1])
+
 class Atom(DataShape):
     """
     Atoms for arguments to constructors of types, not types in
@@ -346,6 +350,12 @@ class Fixed(Atom):
 
     def __str__(self):
         return str(self.val)
+
+    def __repr__(self):
+        return "Fixed(%s)" % self.val
+
+    def __int__(self):
+        return self.val
 
 #------------------------------------------------------------------------
 # Variable
