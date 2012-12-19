@@ -34,7 +34,7 @@ cdef class Tile(object):
     cdef CTile tile
 
 #------------------------------------------------------------------------
-# C-level iterators and indexers on scalars or bulk data (tiles)
+# C-level iterators and indexers on scalars or bulk data (chunks/tiles)
 #------------------------------------------------------------------------
 
 # Read chunks in sequence. After use, a written chunk must be committed, and a
@@ -53,14 +53,15 @@ ctypedef public struct CIndexer:
     void (*index_write)(CIndexer *info, Py_ssize_t *indices, void *datum)
     IndexerMetaData meta
 
-ctypedef void (*tile_read_t)(CTileIndexer *info, Py_ssize_t *indices,
-                             CTile *out_tile)
-ctypedef void (*tile_commit_t)(CTileIndexer *info, Py_ssize_t *indices,
-                               CTile *in_tile)
+
+ctypedef int (*tile_read_t)(CTileIndexer *info, Py_ssize_t *indices,
+                            CTile *out_tile) except -1
+
 # global coordinates -> ND tile
 ctypedef public struct CTileIndexer:
     tile_read_t index
-    tile_commit_t commit
+    tile_read_t commit
+    tile_read_t dispose
     IndexerMetaData meta
 
 #------------------------------------------------------------------------
@@ -75,4 +76,7 @@ cdef class ChunkIterator(lldatadesc):
     cdef CChunkIterator iterator
 
 cdef class TileIndexer(lldatadesc):
+    cdef CTileIndexer indexer
+
+cdef class DataIndexer(lldatadesc):
     cdef CIndexer indexer

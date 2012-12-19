@@ -1,6 +1,9 @@
 """
 Low-level data descriptors accessible from C, Cython and Python (and numba
 in the future).
+
+The Python side is handled by wrapping the C data structures in extension
+classes and using the callbacks.
 """
 
 #------------------------------------------------------------------------
@@ -14,6 +17,9 @@ cdef class lldatadesc(object):
         self.datashape = datashape
 
 cdef class ChunkIterator(lldatadesc):
+    """
+    Iterator over one-dimensional chunks of a data source.
+    """
 
     def __cinit__(self, data_obj, datashape, *args, **kwargs):
         super(ChunkIterator, self).__init__(data_obj, datashape)
@@ -40,7 +46,7 @@ cdef class ChunkIterator(lldatadesc):
 
 cdef class Tile(object):
     """
-    Tiles exposed to Python
+    N-dimensional tiles exposed to Python.
     """
 
     def __init__(self, Py_uintptr_t data, tuple shape):
