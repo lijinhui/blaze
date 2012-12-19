@@ -74,8 +74,8 @@ cdef class Executor(object):
         operands.append(out_operand)
         descriptors = [op.data.read_desc() for op in operands]
 
-        nbtyes = descriptors[0].nbytes
-        assert all(desc.nbytes == nbtyes for desc in descriptors)
+        nbytes_list = np.array([desc.nbytes for desc in descriptors])
+        assert np.all(nbytes_list == nbytes_list[0]), nbytes_list
 
         # TODO: stack-allocate MAX_OPERANDS entries
         data_pointers = <void **> malloc(len(operands) * sizeof(void *))
@@ -104,6 +104,7 @@ cdef class Executor(object):
             free(data_pointers)
             free(strides)
 
+        return out_operand
 
     cdef execute_chunk(self, void **data_pointers, Py_ssize_t *strides, size_t size):
         raise NotImplementedError
