@@ -1,7 +1,7 @@
 import numpy as np
 
 from graph import Op
-from blaze.datashape import coretypes as C
+from blaze.datashape import coretypes as C, datashape
 from blaze.datashape.coretypes import promote
 
 from utils import Symbol
@@ -99,23 +99,6 @@ class Abs(Op):
 
     is_math = True
 
-class Sum(Op):
-    # -----------------------
-    arity = 1
-    signature = 'a -> b' # TODO: a -> a.dtype ? result type also depends on
-                         #       axis parameter
-    dom = [array_like, numeric]
-    # -----------------------
-
-    identity     = zero
-    commutative  = True
-    associative  = True
-    idempotent   = False
-    nilpotent    = False
-    sideffectful = False
-
-    is_reduction = True
-
 class Transpose(Op):
     # -----------------------
     arity = 1
@@ -130,3 +113,30 @@ class Transpose(Op):
     nilpotent    = True
     sideffectful = False
 
+class ReductionOp(Op):
+    # Need an OO taxonomy for compute_datashape
+
+    # -----------------------
+    arity = 1
+    signature = 'a -> b' # TODO: a -> a.dtype ? result type also depends on
+    #       axis parameter
+    dom = [array_like, numeric]
+    # -----------------------
+
+    is_reduction = True
+
+    def compute_datashape(self, operands, kwargs):
+        if kwargs.get("axis", None):
+            raise NotImplemented("axis")
+
+        dshape = super(ReductionOp, self).compute_datashape(operands, kwargs)
+        return datashape((dshape,))
+
+class Sum(ReductionOp):
+
+    identity     = zero
+    commutative  = True
+    associative  = True
+    idempotent   = False
+    nilpotent    = False
+    sideffectful = False

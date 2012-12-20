@@ -559,6 +559,12 @@ class Op(ExpressionNode):
         # Make sure the graph makes sense given the signature of
         # the function. Does naive type checking and inference.
 
+        # TODO: type inference on the aterm graph
+        self.datashape = self.compute_datashape(operands, kwargs)
+
+    def compute_datashape(self, operands, kwargs):
+        return coretypes.broadcast(*operands)
+
     @property
     def nin(self):
         raise NotImplementedError
