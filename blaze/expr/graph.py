@@ -560,7 +560,10 @@ class Op(ExpressionNode):
         # the function. Does naive type checking and inference.
 
         # TODO: type inference on the aterm graph
-        self.datashape = coretypes.broadcast(*operands)
+        self.datashape = self.compute_datashape(operands, kwargs)
+
+    def compute_datashape(self, operands, kwargs):
+        return coretypes.broadcast(*operands)
 
     @property
     def nin(self):

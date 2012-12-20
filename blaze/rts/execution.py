@@ -67,6 +67,7 @@ def execplan(context, plan):
             # lhs = h.allocate(instruction.lhs.size())
             # lhs = blaze.zeros(instruction.datashape)
             # TODO: replace with sanity
+            # TODO: Support allocation of scalars
             dshape = instruction.datashape
             mem = np.empty(dshape.shape, dtype=np.dtype(dshape.dtype))
             lhs = blaze.NDArray(mem, dshape=dshape)
