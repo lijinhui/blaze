@@ -2,6 +2,7 @@ cimport cpython
 from libc.stdlib cimport malloc, free
 cimport numpy as cnp
 from cpython cimport PyObject, Py_INCREF
+from blaze.engine import numba_kernels
 
 from blaze.sources.descriptors cimport lldescriptors
 
@@ -9,6 +10,7 @@ from blaze.sources.descriptors cimport lldescriptors
 # NumPy Utilities
 #------------------------------------------------------------------------
 
+import numba
 import numpy as np
 
 cdef extern from "Python.h":
@@ -113,10 +115,13 @@ cdef class Executor(object):
         return "Executor(%s, %s)" % (self.strategy, self.operation)
 
 #------------------------------------------------------------------------
-# Numba Executors
+# Numba UFunc Executors
 #------------------------------------------------------------------------
 
 cdef class ElementwiseLLVMExecutor(Executor):
+    """
+    Use a ufunc with a Numba kernel for element-wise execution.
+    """
 
     cdef object ufunc, result_dtype
     cdef list operands, dtypes
@@ -157,3 +162,33 @@ cdef class ElementwiseLLVMExecutor(Executor):
 
     def __repr__(self):
         return "LLVMExecutor(%s, %s)" % (self.strategy, self.operation)
+
+#------------------------------------------------------------------------
+# Numba Kernel Executors
+#------------------------------------------------------------------------
+# Kernels written entirely in Numba
+
+cdef class NumbaFullReducingExecutor(Executor):
+    """
+    Perform full reductions, e.g. A.sum()
+
+        numba_reducer: python numba scalar kernel
+        numba_type: numba type representation of the element type (dtype)
+    """
+
+    cdef object reduce_kernel, numba_type
+
+    def __init__(self, strategy, numba_reducer, numba_type, **kwargs):
+        super(NumbaFullReducingExecutor, self).__init__(strategy, **kwargs)
+        self.reduce_kernel = numba.autojit(numba_reducer)
+        self.numba_type = numba_type
+
+    cdef execute_chunk(self, void **data_pointers, Py_ssize_t *strides,
+                             size_t size):
+        numba_kernels.numba_full_reduce(
+                <Py_uintptr_t> data_pointers,
+                strides[0],
+                size,
+                self.reduce_kernel,
+                self.numba_type,
+                self.numba_type.pointer())

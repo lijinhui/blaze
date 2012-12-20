@@ -18,7 +18,8 @@ from params import params
 from toplevel import *
 from toplevel import (blaze_all as all,
                       blaze_any as any,
-                      blaze_abs as abs)
+                      blaze_abs as abs,
+                      blaze_sum as sum)
 
 # Shorthand namespace dump
 from datashape.shorthand import *

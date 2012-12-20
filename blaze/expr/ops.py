@@ -99,6 +99,23 @@ class Abs(Op):
 
     is_math = True
 
+class Sum(Op):
+    # -----------------------
+    arity = 1
+    signature = 'a -> b' # TODO: a -> a.dtype ? result type also depends on
+                         #       axis parameter
+    dom = [array_like, numeric]
+    # -----------------------
+
+    identity     = zero
+    commutative  = True
+    associative  = True
+    idempotent   = False
+    nilpotent    = False
+    sideffectful = False
+
+    is_reduction = True
+
 class Transpose(Op):
     # -----------------------
     arity = 1

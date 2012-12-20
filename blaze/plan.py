@@ -84,12 +84,15 @@ class Var(object):
         return self.key
 
 class Instruction(object):
-    def __init__(self, fn, datashape, args=None, lhs=None):
+    def __init__(self, fn, datashape, args=None, lhs=None, fillvalue=None):
         """ %lhs = fn{props}(arguments) """
 
         self.fn = fn
         self.lhs = lhs
         self.args = args or []
+
+        # Value to initialize the LHS with (applicable for reductions)
+        self.fillvalue = fillvalue
 
         self.datashape = datashape
 
@@ -280,10 +283,13 @@ class BlazeVisitor(MroVisitor):
         annot = annotation(graph)
         children = self.visit(graph.children)
 
+        # TODO: Set classifier directly on graph nodes?
         if graph.is_arithmetic:
             classifier = 'Arithmetic'
         elif graph.is_math:
             classifier = 'Math'
+        elif graph.is_reduction:
+            classifier = 'Reduction'
         else:
             classifier = None
 

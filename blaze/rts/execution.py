@@ -68,7 +68,6 @@ def execplan(context, plan):
             # lhs = blaze.zeros(instruction.datashape)
             # TODO: replace with sanity
             dshape = instruction.datashape
-            print dshape.shape, np.dtype(dshape.dtype)
             mem = np.empty(dshape.shape, dtype=np.dtype(dshape.dtype))
             lhs = blaze.NDArray(mem, dshape=dshape)
         else:

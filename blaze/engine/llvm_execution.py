@@ -1,4 +1,6 @@
 import ast
+import inspect
+from functools import partial
 
 import numpy as np
 
@@ -16,6 +18,7 @@ from blaze.expr import paterm
 from blaze.datashape import coretypes
 from blaze.engine import pipeline
 from blaze.engine import executors
+from blaze.engine import numba_kernels, numba_reductions
 from blaze.sources import canonical
 from blaze import plan
 
@@ -51,6 +54,18 @@ class GraphToAst(visitor.BasicGraphVisitor):
         return self.ufunc_builder.register_operand(tree)
 
 
+def is_something(name, app):
+    return paterm.matches('%s;*' % name, app.spine)
+
+is_arithmetic   = partial(is_something, 'Arithmetic')
+is_math         = partial(is_something, 'Math')
+is_reduction    = partial(is_something, 'Reduction')
+is_full_reduction = is_reduction
+is_slice        = partial(is_something, 'Slice')
+is_assign       = partial(is_something, 'Assign')
+is_array        = partial(is_something, 'Array')
+is_none         = partial(is_something, 'None')
+
 class ATermToAstTranslator(visitor.GraphTranslator):
     """
     Convert an aterm graph to a Python AST.
@@ -60,6 +75,9 @@ class ATermToAstTranslator(visitor.GraphTranslator):
         'add': ast.Add,
         'mul': ast.Mult,
     }
+
+    opname_to_reduce_kernel = dict(inspect.getmembers(numba_reductions,
+                                                      inspect.isfunction))
 
     nesting_level = 0
 
@@ -73,36 +91,61 @@ class ATermToAstTranslator(visitor.GraphTranslator):
         term_id = term.annotation.meta[0].label
         return self.blaze_operands[term_id]
 
+    def strategy(self, graph, operands):
+        return "chunked"
+
+    def build_executor(self, graph, operands, result):
+        result_dtype = unannotate_dtype(graph)
+        strategy = self.strategy(graph, operands)
+
+        if is_reduction(graph):
+            operator, operand = graph.args
+            opname = operator.label.lower()
+            kernel = self.opname_to_reduce_kernel[opname]
+            executor = executors.NumbaFullReducingExecutor(
+                    strategy, kernel, minitype(result_dtype))
+        else:
+            pyast_function = self.ufunc_builder.build_ufunc_ast(result)
+            # print getsource(pyast_function)
+            py_ufunc = self.ufunc_builder.compile_to_pyfunc(pyast_function,
+                                                            globals={'np': np})
+
+            operand_dtypes = map(unannotate_dtype, operands)
+            executor = build_ufunc_executor(operand_dtypes, py_ufunc,
+                                            pyast_function, result_dtype,
+                                            strategy)
+
+        return executor
+
+    def register_operand(self, graph, result, lhs):
+        operands = self.ufunc_builder.operands
+
+        executor = self.build_executor(graph, operands, result)
+        self.executors[id(executor)] = executor
+
+        if lhs is not None:
+            operands.append(lhs)
+            datashape = lhs.annotation.ty #self.get_blaze_op(lhs).datashape
+        else:
+            # blaze_operands = [self.get_blaze_op(op) for op in operands]
+            # datashape = coretypes.broadcast(*blaze_operands)
+            datashape = graph.annotation.ty
+
+        annotation = paterm.AAnnotation(
+            ty=datashape,
+            annotations=[id(executor), 'numba', bool(lhs)]
+        )
+        appl = paterm.AAppl(paterm.ATerm('Executor'), operands,
+                            annotation=annotation)
+        return appl
+
     def register(self, graph, result, lhs=None):
         if lhs is not None:
             assert self.nesting_level == 0
 
         if self.nesting_level == 0:
             # Bottom of graph that we can handle
-            operands = self.ufunc_builder.operands
-            pyast_function = self.ufunc_builder.build_ufunc_ast(result)
-            # print getsource(pyast_function)
-            py_ufunc = self.ufunc_builder.compile_to_pyfunc(pyast_function,
-                                                            globals={'np': np})
-
-            executor = build_executor(py_ufunc, pyast_function, operands, graph)
-            self.executors[id(executor)] = executor
-
-            if lhs is not None:
-                operands.append(lhs)
-                datashape = lhs.annotation.ty #self.get_blaze_op(lhs).datashape
-            else:
-                # blaze_operands = [self.get_blaze_op(op) for op in operands]
-                # datashape = coretypes.broadcast(*blaze_operands)
-                datashape = graph.annotation.ty
-
-            annotation = paterm.AAnnotation(
-                ty=datashape,
-                annotations=[id(executor), 'numba', bool(lhs)]
-            )
-            appl = paterm.AAppl(paterm.ATerm('Executor'), operands,
-                                annotation=annotation)
-            return appl
+            return self.register_operand(graph, result, lhs)
 
         self.result = result
 
@@ -117,21 +160,19 @@ class ATermToAstTranslator(visitor.GraphTranslator):
 
         lhs, rhs = app.args
 
-        #
-        ### Visit rhs
-        #
+        #--------------------------------------------------------------------
+        # Visit RHS
+        #--------------------------------------------------------------------
         self.nesting_level += 1
         self.visit(rhs)
         rhs_result = self.result
         self.nesting_level -= 1
 
-        #
-        ### Visit lhs
-        #
-        # TODO: extend paterm.matches
-        is_simple = (lhs.spine.label == 'Slice' and
-                     lhs.args[0].spine.label == 'Array' and
-                     all(v.label == "None" for v in lhs.args[1:]))
+        #--------------------------------------------------------------------
+        # Visit LHS
+        #--------------------------------------------------------------------
+        is_simple = (is_slice(lhs) and is_array(lhs.args[0]) and
+                     all(is_none(v) for v in lhs.args[1:]))
         if is_simple:
             self.nesting_level += 1
             lhs = self.visit(lhs)
@@ -147,21 +188,21 @@ class ATermToAstTranslator(visitor.GraphTranslator):
             lhs_result = self.result
             self.ufunc_builder.restore(state)
 
-        #
-        ### Build and return kernel if the rhs was an expression we could handle
-        #
+        #--------------------------------------------------------------------
+        # Build and return kernel if the rhs was an expression we could handle
+        #--------------------------------------------------------------------
         if rhs_result:
             return self.register(app, rhs_result, lhs=lhs)
         else:
             app.args = [lhs, rhs]
             return app
 
-    def handle_math_or_arithmetic(self, app, is_arithmetic):
+    def handle_math_or_arithmetic(self, app):
         """
         Rewrite math and arithmetic operations.
         """
         opname = app.args[0].label.lower()
-        if is_arithmetic:
+        if is_arithmetic(app):
             op = self.opname_to_astop.get(opname, None)
         else:
             # TODO: unhack
@@ -181,7 +222,7 @@ class ATermToAstTranslator(visitor.GraphTranslator):
             self.nesting_level -= 1
 
             # handle_arithmetic/handle_math
-            if is_arithmetic:
+            if is_arithmetic(app):
                 return self.handle_arithmetic(app, op)
             else:
                 return self.handle_math(app, op)
@@ -208,21 +249,33 @@ class ATermToAstTranslator(visitor.GraphTranslator):
                              starargs=None, kwargs=None)
         return self.register(app, math_call)
 
+    def handle_full_reduction(self, app):
+        """
+        Handle things like (A * B).sum().
+        """
+        # TODO: Fuse potential numba kernel operand with reduction operation
+
+        operator, operand = app.args
+        self.visitchildren0(app)
+        return self.register_operand(app, None, None)
+
     def AAppl(self, app):
         "Look for unops, binops and reductions and anything else we can handle"
-        is_arithmetic = paterm.matches('Arithmetic;*', app.spine)
-        if is_arithmetic or paterm.matches("Math;*", app.spine):
-            return self.handle_math_or_arithmetic(app, is_arithmetic)
+        if is_arithmetic(app) or is_math(app):
+            return self.handle_math_or_arithmetic(app)
 
-        elif paterm.matches('Slice;*', app.spine):
+        if is_full_reduction(app):
+            return self.handle_full_reduction(app)
+
+        elif is_slice(app):
             array, start, stop, step = app.args
-            if all(paterm.matches("None;*", op) for op in (start, stop, step)):
+            if all(is_none(op) for op in (start, stop, step)):
                 return self.visit(array)
 
-        elif paterm.matches("Assign;*", app.spine):
+        elif is_assign(app):
             return self.match_assignment(app)
 
-        elif paterm.matches("Array;*", app.spine) and self.nesting_level:
+        elif is_array(app) and self.nesting_level:
             self.maybe_operand(app)
             if self.nesting_level:
                 return None
@@ -240,25 +293,32 @@ class ATermToAstTranslator(visitor.GraphTranslator):
         if self.nesting_level:
             self.result = self.ufunc_builder.register_operand(aterm)
 
-    def unhandled(self, aterm):
-        "An term we can't handle, scan for sub-trees"
-        nesting_level = self.nesting_level
-        state = self.ufunc_builder.save()
+    def visitchildren0(self, aterm):
+        """
+        Visit the children of a term at nesting level 0, and restore the
+        level afterwards. This is useful to register a potential numba
+        subtree as a separate (or unhandled) operand, e.g.:
 
+            (A * B).sum()
+               ^
+               |___ register as separate operand
+        """
+        nesting_level = self.nesting_level
         self.nesting_level = 0
         self.visitchildren(aterm)
         self.nesting_level = nesting_level
-        self.ufunc_builder.restore(state)
 
+    def unhandled(self, aterm):
+        "An term we can't handle, scan for sub-trees"
+        state = self.ufunc_builder.save()
+        self.visitchildren0(aterm)
+        self.ufunc_builder.restore(state)
         self.maybe_operand(aterm)
         return aterm
 
 
-def build_executor(py_ufunc, pyast_function, operands,
-                   aterm_subgraph_root, strategy='chunked'):
-    """ Build a ufunc and an wrapping executor from a Python AST """
-    result_dtype = unannotate_dtype(aterm_subgraph_root)
-    operand_dtypes = map(unannotate_dtype, operands)
+def build_ufunc_executor(operand_dtypes, py_ufunc, pyast_function, result_dtype,
+                         strategy):
 
     vectorizer = Vectorize(py_ufunc)
     vectorizer.add(restype=minitype(result_dtype),
@@ -269,14 +329,24 @@ def build_executor(py_ufunc, pyast_function, operands,
     return_stat = pyast_function.body[0]
     operation = getsource(return_stat.value)
 
-    # TODO: build an executor tree and substitute where we can evaluate
     executor = executors.ElementwiseLLVMExecutor(
         strategy,
         ufunc,
         operand_dtypes,
         result_dtype,
         operation=operation,
-    )
+        )
+    return executor
+
+
+def build_executor(py_ufunc, pyast_function, operands,
+                   aterm_subgraph_root, strategy='chunked'):
+    """ Build a ufunc and an wrapping executor from a Python AST """
+    result_dtype = unannotate_dtype(aterm_subgraph_root)
+    operand_dtypes = map(unannotate_dtype, operands)
+
+    executor = build_ufunc_executor(operand_dtypes, py_ufunc, pyast_function,
+                                    result_dtype, strategy)
 
     return executor
 
