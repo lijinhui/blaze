@@ -263,3 +263,65 @@ def blaze_abs(a, axis=None, out=None):
     """
     a = _ndarray(a)
     return a.abs(axis=axis, out=out)
+
+def blaze_sum(a, axis=None, out=None):
+    """
+    Sum of array elements over a given axis.
+
+    Parameters
+    ----------
+    a : array_like
+        Elements to sum.
+    axis : None or int or tuple of ints, optional
+        Axis or axes along which a sum is performed.
+        The default (`axis` = `None`) is perform a sum over all
+        the dimensions of the input array. `axis` may be negative, in
+        which case it counts from the last to the first axis.
+
+        .. versionadded:: 1.7.0
+
+        If this is a tuple of ints, a sum is performed on multiple
+        axes, instead of a single axis or all the axes as before.
+    out : ndarray, optional
+        Array into which the output is placed.  By default, a new array is
+        created.  If `out` is given, it must be of the appropriate shape
+        (the shape of `a` with `axis` removed, i.e.,
+        ``numpy.delete(a.shape, axis)``).  Its type is preserved. See
+        `doc.ufuncs` (Section "Output arguments") for more details.
+
+    Returns
+    -------
+    sum_along_axis : ndarray
+        An array with the same shape as `a`, with the specified
+        axis removed.   If `a` is a 0-d array, or if `axis` is None, a scalar
+        is returned.  If an output array is specified, a reference to
+        `out` is returned.
+
+    See Also
+    --------
+    ndarray.sum : Equivalent method.
+
+    cumsum : Cumulative sum of array elements.
+
+    trapz : Integration of array values using the composite trapezoidal rule.
+
+    mean, average
+
+    Notes
+    -----
+    Arithmetic is modular when using integer types, and no error is
+    raised on overflow.
+
+    Examples
+    --------
+    >>> np.sum([0.5, 1.5])
+    2.0
+    >>> np.sum([[0, 1], [0, 5]])
+    6
+    >>> np.sum([[0, 1], [0, 5]], axis=0)
+    array([0, 6])
+    >>> np.sum([[0, 1], [0, 5]], axis=1)
+    array([1, 5])
+    """
+    a = _ndarray(a)
+    return a.sum(axis=axis, out=out)
