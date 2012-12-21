@@ -5,6 +5,27 @@ from cpython cimport *
 
 from blaze.carray import carrayExtension as carray
 
+
+cdef chunk_next_generic(CChunkIterator *info, CChunk *chunk, arr,
+                        keep_alive=True):
+    """
+    Fill out the chunk info given a numpy array
+    """
+    chunk.data = <void *> <Py_uintptr_t> arr.ctypes.data
+    chunk.size = arr.shape[0]
+    chunk.stride = arr.strides[0]
+
+    chunk.chunk_index = info.cur_chunk_idx
+
+    if keep_alive:
+        # Keep chunk source alive (e.g. decompressed memory)
+        # The dispose and commit functions must ensure this object gets
+        # decreffed!
+        Py_INCREF(arr)
+        chunk.obj = <PyObject *> arr
+
+    info.cur_chunk_idx += 1
+
 #------------------------------------------------------------------------
 # carray chunk iterators and indexers
 #------------------------------------------------------------------------
@@ -16,7 +37,6 @@ cdef class CArrayChunkIterator(ChunkIterator):
         self.iterator.next = carray_chunk_next
         self.iterator.commit = carray_chunk_commit
         self.iterator.dispose = carray_chunk_dispose
-
 
 cdef int carray_chunk_next(CChunkIterator *info, CChunk *chunk) except -1:
     cdef Py_uintptr_t data
@@ -35,17 +55,7 @@ cdef int carray_chunk_next(CChunkIterator *info, CChunk *chunk) except -1:
         # chunk.size = 0
         return 0
 
-    chunk.data = <void *> <Py_uintptr_t> arr.ctypes.data
-    chunk.size = arr.shape[0]
-    chunk.stride = arr.strides[0]
-    chunk.chunk_index = info.cur_chunk_idx
-
-    # Keep decompressed memory alive
-    Py_INCREF(arr)
-    chunk.obj = <PyObject *> arr
-
-    info.cur_chunk_idx += 1
-
+    chunk_next_generic(info, chunk, arr)
     return 0
 
 cdef int carray_chunk_commit(CChunkIterator *info, CChunk *chunk) except -1:
@@ -64,4 +74,22 @@ cdef int carray_chunk_dispose(CChunkIterator *info, CChunk *chunk) except -1:
     # Decref previously set live object
     Py_XDECREF(chunk.obj)
     chunk.obj = NULL
+    return 0
+
+#------------------------------------------------------------------------
+# NumPy chunk iterators and indexers
+#------------------------------------------------------------------------
+
+cdef class NumPyChunkIterator(ChunkIterator):
+
+    def __cinit__(self, data_obj, datashape, *args, **kwargs):
+        super(NumPyChunkIterator, self).__init__(data_obj, datashape)
+        self.iterator.next = numpy_chunk_next
+        self.iterator.commit = NULL
+        self.iterator.dispose = NULL
+
+
+cdef int numpy_chunk_next(CChunkIterator *info, CChunk *chunk) except -1:
+    arr = <object> <PyObject *> info.meta.source
+    chunk_next_generic(info, chunk, arr, keep_alive=False)
     return 0

@@ -107,11 +107,64 @@ class Indexable(object):
         # TODO: make it global :)
         return id(self)
 
+class ArrayLike(Indexable):
+    """
+    Base for ArrayLike blaze objects, i.e. Array and NDArray.
+    """
+
+    def init(self, obj, dshape=None, metadata=None, layout=None,
+                   params=None):
+
+        # Datashape
+        # ---------
+
+        if isinstance(dshape, basestring):
+            dshape = _dshape(dshape)
+
+        if not dshape:
+            # The user just passed in a raw data source, try
+            # and infer how it should be layed out or fail
+            # back on dynamic types.
+            self._datashape = dshape = CArraySource.infer_datashape(obj)
+        else:
+            # The user overlayed their custom dshape on this
+            # data, check if it makes sense
+            CArraySource.check_datashape(obj, given_dshape=dshape)
+            self._datashape = dshape
+
+        # Values
+        # ------
+        # Mimic NumPy behavior in that we have a variety of
+        # possible arguments to the first argument which result
+        # in different behavior for the values.
+
+        if isinstance(obj, ByteProvider):
+            self.data = obj
+        elif isinstance(obj, np.ndarray):
+            self.data = ArraySource(obj, dshape=dshape, params=params)
+        else:
+            self.data = CArraySource(obj, dshape=dshape, params=params)
+
+        # children graph nodes
+        self.children = []
+
+        self.space = Space(self.data)
+
+        # Metadata
+        # --------
+
+        self._metadata  = NDArray._metaheader + (metadata or [])
+
+        # Parameters
+        # ----------
+        self.params = params
+
+
 #------------------------------------------------------------------------
 # Immediate
 #------------------------------------------------------------------------
 
-class Array(Indexable):
+class Array(ArrayLike):
     """
     Manifest array, does not create a graph. Forces evaluation on every
     call.
@@ -150,56 +203,14 @@ class Array(Indexable):
     def __init__(self, obj, dshape=None, metadata=None, layout=None,
             params=None):
 
-        # Datashape
-        # ---------
-
-        if isinstance(dshape, basestring):
-            dshape = _dshape(dshape)
-
-        if not dshape:
-            # The user just passed in a raw data source, try
-            # and infer how it should be layed out or fail
-            # back on dynamic types.
-            self._datashape = dshape = CArraySource.infer_datashape(obj)
-        else:
-            # The user overlayed their custom dshape on this
-            # data, check if it makes sense
-            CArraySource.check_datashape(obj, given_dshape=dshape)
-            self._datashape = dshape
-
-        # Values
-        # ------
-        # Mimic NumPy behavior in that we have a variety of
-        # possible arguments to the first argument which result
-        # in different behavior for the values.
-
-        if isinstance(obj, ByteProvider):
-            self.data = obj
-        else:
-            self.data = CArraySource(obj, params=params)
-
-        # children graph nodes
-        self.children = []
-
-        self.space = Space(self.data)
+        self.init(obj, dshape, metadata, layout, params)
 
         # Layout
         # ------
-
         if layout:
             self._layout = layout
         elif not layout:
             self._layout = self.data.default_layout()
-
-        # Metadata
-        # --------
-
-        self._metadata  = NDArray._metaheader + (metadata or [])
-
-        # Parameters
-        # ----------
-        self.params = params
-
 
     #------------------------------------------------------------------------
     # Properties
@@ -256,7 +267,7 @@ class Array(Indexable):
         return generic_repr('Array', self, deferred=False)
 
 
-class NDArray(Indexable, ArrayNode):
+class NDArray(ArrayLike, ArrayNode):
     """
     Deferred array, operations on this array create a graph built
     around an ArrayNode.
@@ -271,69 +282,14 @@ class NDArray(Indexable, ArrayNode):
     def __init__(self, obj, dshape=None, metadata=None, layout=None,
                  params=None):
 
-        data = None
-
-        # Values
-        # ------
-        # Mimic NumPy behavior in that we have a variety of
-        # possible arguments to the first argument which result
-        # in different behavior for the values.
-
-        if isinstance(obj, CArraySource):
-            self.data = obj
-        else:
-            self.data = CArraySource(data=obj, dshape=dshape, params=params)
-
-        # Datashape
-        # ---------
-
-        if isinstance(dshape, basestring):
-            dshape = _dshape(dshape)
-
-        if not dshape:
-            # The user just passed in a raw data source, try
-            # and infer how it should be layed out or fail
-            # back on dynamic types.
-            self._datashape = dshape = CArraySource.infer_datashape(obj)
-        else:
-            # The user overlayed their custom dshape on this
-            # data, check if it makes sense
-            CArraySource.check_datashape(obj, given_dshape=dshape)
-            self._datashape = dshape
-
-        # Values
-        # ------
-        # Mimic NumPy behavior in that we have a variety of
-        # possible arguments to the first argument which result
-        # in different behavior for the values.
-
-        if isinstance(obj, CArraySource):
-            self.data = obj
-        else:
-            self.data = CArraySource(obj, dshape, params)
-
-        # children graph nodes
-        self.children = []
-
-        self.space = Space(self.data)
+        self.init(obj, dshape, metadata, layout, params)
 
         # Layout
         # ------
-
         if layout:
             self._layout = layout
         elif not layout:
             self._layout = ChunkedL(self.data, cdimension=0)
-
-        # Metadata
-        # --------
-
-        self._metadata  = NDArray._metaheader + (metadata or [])
-
-        # Parameters
-        # ----------
-        self.params = params
-
 
     def __str__(self):
         return generic_str(self, deferred=True)
