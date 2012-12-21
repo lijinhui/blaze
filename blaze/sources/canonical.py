@@ -64,6 +64,9 @@ class ArraySource(ByteProvider):
             self.na.shape,
         )
 
+    def repr_data(self):
+        return repr(self.na)
+
     def default_layout(self):
         return ChunkedL(self, cdimension=0)
 
