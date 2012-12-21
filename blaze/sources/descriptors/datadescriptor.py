@@ -156,9 +156,18 @@ class CArrayDataDescriptor(DataDescriptor):
     def __init__(self, id, nbytes, datashape, carray):
         super(CArrayDataDescriptor, self).__init__(id, nbytes, datashape)
         self.carray = carray
-        self.itemsize = carray.itemsize
+#        self.itemsize = carray.itemsize
 
     def as_chunked_iterator(self, copy=False):
         """Return a ChunkIterator
         """
         return llindexers.CArrayChunkIterator(self.carray, self.datashape)
+
+class NumPyDataDescriptor(DataDescriptor):
+
+    def __init__(self, id, nbytes, datashape, array):
+        super(NumPyDataDescriptor, self).__init__(id, nbytes, datashape)
+        self.array = array
+
+    def as_chunked_iterator(self, copy=False):
+        return llindexers.NumPyChunkIterator(self.carray, self.datashape)

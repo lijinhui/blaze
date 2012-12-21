@@ -7,6 +7,9 @@ from blaze.sources.descriptors.byteprovider import ByteProvider
 from blaze.datashape import Fixed, dynamic, string, pyobj
 from blaze.datashape.coretypes import from_numpy, to_numpy
 from blaze.byteproto import CONTIGUOUS, CHUNKED, STREAM, ACCESS_ALLOC
+from blaze.layouts.scalar import ChunkedL
+
+from blaze.sources.descriptors import datadescriptor
 
 import socket
 import numpy as np
@@ -18,11 +21,15 @@ class ArraySource(ByteProvider):
     Only used for bootstrapping. Will be removed later.
     """
 
-    read_capabilities  = CONTIGUOUS
-    write_capabilities = CONTIGUOUS
+    read_capabilities  = CONTIGUOUS | CHUNKED | STREAM
+    write_capabilities = CONTIGUOUS | CHUNKED | STREAM
 
-    def __init__(self, lst):
-        self.na = np.array(lst)
+    def __init__(self, array, dshape, params):
+        if not isinstance(array, np.ndarray):
+            array = np.array(array)
+
+        self.na = array
+        self.dshape = dshape
 
     @staticmethod
     def infer_datashape(source):
@@ -46,6 +53,10 @@ class ArraySource(ByteProvider):
         shape, dtype = from_numpy(datashape)
         return ArraySource(np.ndarray(shape, dtype))
 
+    def read_desc(self):
+        return datadescriptor.NumPyDataDescriptor(
+                'numpy_dd', self.na.nbytes, self.dshape, self.na)
+
     def __repr__(self):
         return 'Numpy(ptr=%r, dtype=%s, shape=%r)' % (
             id(self.na),
@@ -53,6 +64,16 @@ class ArraySource(ByteProvider):
             self.na.shape,
         )
 
+    def default_layout(self):
+        return ChunkedL(self, cdimension=0)
+
+    @property
+    def nchunks(self):
+        return 1
+
+    @property
+    def partitions(self):
+        return [self.na]
 
 class PythonSource(ByteProvider):
     """
