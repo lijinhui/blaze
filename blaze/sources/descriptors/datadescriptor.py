@@ -170,4 +170,4 @@ class NumPyDataDescriptor(DataDescriptor):
         self.array = array
 
     def as_chunked_iterator(self, copy=False):
-        return llindexers.NumPyChunkIterator(self.carray, self.datashape)
+        return llindexers.NumPyChunkIterator(self.array, self.datashape)

@@ -39,10 +39,12 @@ cdef class ChunkIterator(lldatadesc):
             yield chunk
 
     def commit(self, Chunk chunk):
-        self.iterator.commit(&self.iterator, &chunk.chunk)
+        if self.iterator.commit != NULL:
+            self.iterator.commit(&self.iterator, &chunk.chunk)
 
     def dispose(self, Chunk chunk):
-        self.iterator.dispose(&self.iterator, &chunk.chunk)
+        if self.iterator.dispose != NULL:
+            self.iterator.dispose(&self.iterator, &chunk.chunk)
 
 cdef class Tile(object):
     """

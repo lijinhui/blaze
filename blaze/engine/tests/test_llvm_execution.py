@@ -14,7 +14,7 @@ def convert_graph(lazy_blaze_graph):
     return context["instructions"], context["executors"], context["symbols"]
 
 def print_data(a):
-    print a.data.ca
+    print a.data.repr_data()
 
 def test_conversion():
     """
@@ -54,7 +54,7 @@ def test_execution_simple():
 def test_abs():
     """
     >>> test_abs()
-    [ 1.  2.  6.  4.]
+    array([ 1.,  2.,  6.,  4.], dtype=float32)
     """
     a = NDArray([1, 2, -6, 4], datashape('4, float32'))
     result = blaze.abs(a).eval()
@@ -94,9 +94,9 @@ def test_execution():
 
 if __name__ == '__main__':
 #    print blaze.zeros(datashape("4, float32")).datashape
-#    test_abs()
+#    print test_abs()
 #   test_conversion()
 #    test_execution()
-    test_sum()
-#    import doctest
-#    doctest.testmod()
+#    test_sum()
+    import doctest
+    doctest.testmod()

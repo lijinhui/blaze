@@ -6,14 +6,17 @@ from cpython cimport *
 from blaze.carray import carrayExtension as carray
 
 
-cdef chunk_next_generic(CChunkIterator *info, CChunk *chunk, arr,
-                        keep_alive=True):
+cdef chunk_next_generic(CChunkIterator *info, CChunk *chunk, arr, keep_alive):
     """
     Fill out the chunk info given a numpy array
     """
     chunk.data = <void *> <Py_uintptr_t> arr.ctypes.data
-    chunk.size = arr.shape[0]
-    chunk.stride = arr.strides[0]
+    if arr.ndim > 0:
+        chunk.size = arr.shape[0]
+        chunk.stride = arr.strides[0]
+    else:
+        chunk.size = 1
+        chunk.stride = 0
 
     chunk.chunk_index = info.cur_chunk_idx
 
@@ -25,6 +28,10 @@ cdef chunk_next_generic(CChunkIterator *info, CChunk *chunk, arr,
         chunk.obj = <PyObject *> arr
 
     info.cur_chunk_idx += 1
+
+cdef int done(CChunk *chunk):
+    chunk.data = NULL
+    return 0
 
 #------------------------------------------------------------------------
 # carray chunk iterators and indexers
@@ -51,11 +58,9 @@ cdef int carray_chunk_next(CChunkIterator *info, CChunk *chunk) except -1:
     elif info.cur_chunk_idx == carray.nchunks:
         arr = carray.leftover_array
     else:
-        chunk.data = NULL
-        # chunk.size = 0
-        return 0
+        return done(chunk)
 
-    chunk_next_generic(info, chunk, arr)
+    chunk_next_generic(info, chunk, arr, True)
     return 0
 
 cdef int carray_chunk_commit(CChunkIterator *info, CChunk *chunk) except -1:
@@ -90,6 +95,9 @@ cdef class NumPyChunkIterator(ChunkIterator):
 
 
 cdef int numpy_chunk_next(CChunkIterator *info, CChunk *chunk) except -1:
+    if info.cur_chunk_idx > 0:
+        return done(chunk)
+
     arr = <object> <PyObject *> info.meta.source
-    chunk_next_generic(info, chunk, arr, keep_alive=False)
+    chunk_next_generic(info, chunk, arr, False)
     return 0

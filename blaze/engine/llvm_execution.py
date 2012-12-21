@@ -55,7 +55,9 @@ class GraphToAst(visitor.BasicGraphVisitor):
 
 
 def is_something(name, app):
-    return paterm.matches('%s;*' % name, app.spine)
+    if isinstance(app, paterm.AAppl):
+        app = app.spine
+    return paterm.matches('%s;*' % name, app)
 
 is_arithmetic   = partial(is_something, 'Arithmetic')
 is_math         = partial(is_something, 'Math')
@@ -103,7 +105,7 @@ class ATermToAstTranslator(visitor.GraphTranslator):
             opname = operator.label.lower()
             kernel = self.opname_to_reduce_kernel[opname]
             executor = executors.NumbaFullReducingExecutor(
-                    strategy, kernel, minitype(result_dtype))
+                    strategy, kernel, minitype(result_dtype), operation=opname)
         else:
             pyast_function = self.ufunc_builder.build_ufunc_ast(result)
             # print getsource(pyast_function)
