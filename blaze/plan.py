@@ -74,14 +74,17 @@ class Instruction(object):
         self.lhs = lhs
         self.args = args or []
 
+    def execute(self, operands, lhs):
+        self.fn(operands, lhs)
+
     def __repr__(self):
         # with output types
+        rhs = '%s(%s)' % (self.fn, ' '.join(map(repr, self.args)))
         if self.lhs:
-            return self.lhs + ' = ' + \
-            ' '.join([self.fn,] + map(repr, self.args))
+            return '%s = %s' % (self.lhs, rhs)
         # purely side effectful
         else:
-            return ' '.join([self.fn,] + map(repr, self.args))
+            return rhs
 
 
 # TODO: naive constant folding
@@ -115,10 +118,8 @@ class InstructionGen(MroVisitor):
 
     """
 
-    # TODO: markf comments: this gives us an all-or-nothing approach
-    # either "all-numba" or "all-something else". FIX this
-
-    def __init__(self, have_numbapro):
+    def __init__(self, executors, have_numbapro):
+        self.executors = executors
         self.numbapro = have_numbapro
 
         self.n = 0
@@ -131,6 +132,10 @@ class InstructionGen(MroVisitor):
     @property
     def vars(self):
         return self._vartable
+
+    @property
+    def symbols(self):
+        return dict((name, term) for term, name in self._vartable.iteritems())
 
     def var(self, term):
         key = ('%' + str(self.n))
@@ -213,6 +218,21 @@ class InstructionGen(MroVisitor):
 
     def _Slice(self, term):
         pass
+
+    def _Executor(self, term):
+        executor_id, backend, has_lhs = term.annotation.meta
+        executor = self.executors[executor_id.label]
+
+        self.visit(term.args)
+
+        fargs = [self._vartable[a] for a in term.args]
+
+        # push the temporary for the result in the vartable
+        lhs = self.var(term)
+
+        # build the instruction & push it on the stack
+        inst = Instruction(executor, fargs)
+        self._instructions.append(inst)
 
     def AInt(self, term):
         self._vartable[term] = Constant(term.n)

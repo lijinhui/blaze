@@ -41,22 +41,31 @@ from blaze.rts.storage import Heap
 def execplan(context, plan, symbols):
     """ Takes a list of of instructions from the Pipeline and
     then allocates the necessary memory needed for the
-    intermediates are temporaries """
+    intermediates are temporaries. Then executes the plan
+    returning the result. """
+
+    instructions = context["instructions"]  # [ Instruction(...) ]
+    symbols = context["symbols"]            # { %0 -> Array(...){...}
+    operands = context["operand_dict"]      # { Array(...){...} -> Blaze Array }
+
+    def getop(symbol):
+        term = symbols[symbol]
+        term_id = term.annotation.meta[0].label
+        op = operands[term_id]
+        return op
 
     h = Heap()
     ret = None
-    last = plan[-1]
 
-    for instruction in plan:
-        ops = [symbols[sym] for sym in symbols]
-        dds = [op.asbuflist() for op in ops]
-        dss = [op.datashape() for op in ops]
+    for instruction in instructions:
+        ops = map(getop, instruction.args)
 
-        if instruction.lhs:
-            h.allocate(instruction.lhs.size())
-            ret = instruction(dds, dss)
+        if not instruction.lhs:
+            lhs = h.allocate(instruction.lhs.size())
         else:
-            instruction(dds, dss)
+            lhs = getop(instruction.lhs)
+
+        ret = instruction.execute(ops, lhs)
 
     h.finalize()
     return ret

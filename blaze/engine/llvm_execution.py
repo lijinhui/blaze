@@ -98,7 +98,7 @@ class ATermToAstTranslator(visitor.GraphTranslator):
 
             annotation = paterm.AAnnotation(
                 ty=None,
-                annotations=['numba', id(executor), bool(lhs)]
+                annotations=[id(executor), 'numba', bool(lhs)]
             )
             appl = paterm.AAppl(paterm.ATerm('Executor'), operands,
                                 annotation=annotation)
@@ -182,7 +182,9 @@ class ATermToAstTranslator(visitor.GraphTranslator):
 
         elif paterm.matches("Array;*", app.spine) and self.nesting_level:
             self.maybe_operand(app)
-            return None
+            if self.nesting_level:
+                return None
+            return app
 
         return self.unhandled(app)
 
