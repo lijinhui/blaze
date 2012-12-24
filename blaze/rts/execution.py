@@ -71,6 +71,10 @@ def execplan(context, plan, symbols):
             dshape = instruction.datashape
             mem = np.empty(dshape.shape, dtype=np.dtype(dshape.dtype))
             lhs = blaze.NDArray(mem, dshape=dshape)
+
+            if instruction.fillvalue is not None:
+                # TODO: AMEND
+                mem[...] = instruction.fillvalue
         else:
             lhs = getop(instruction.lhs)
 
