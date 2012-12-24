@@ -654,7 +654,7 @@ def extract_dims(ds):
     """
     if isinstance(ds, CType):
         raise Exception("No Dimensions")
-    return ds.parameters[0:-2]
+    return ds.parameters[0:-1]
 
 def extract_measure(ds):
     """ Discard shape information and just return the measure
