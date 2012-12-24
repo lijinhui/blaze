@@ -15,10 +15,13 @@ def numba_full_reduce(data_pointers_, strides, size, reduce_kernel,
     rhs_data = data_pointers[0]
     lhs_data = dst_type_p(data_pointers[1])
 
-    result = dst_type(lhs_data[0]) # scalar
-    for i in range(size):
+    if size == 0:
+        return
+
+    result = dst_type_p(rhs_data)[0]
+    for i in range(size - 1):
+        rhs_data = rhs_data + stride
         value = dst_type_p(rhs_data)[0]
         result = reduce_kernel(result, value)
-        rhs_data = rhs_data + stride
 
     lhs_data[0] = result
