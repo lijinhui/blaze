@@ -97,6 +97,6 @@ if __name__ == '__main__':
 #    print test_abs()
 #   test_conversion()
 #    test_execution()
-#    test_sum()
-    import doctest
-    doctest.testmod()
+    test_sum()
+#    import doctest
+#    doctest.testmod()

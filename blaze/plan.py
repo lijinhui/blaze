@@ -290,6 +290,7 @@ class BlazeVisitor(MroVisitor):
             classifier = 'Math'
         elif graph.is_reduction:
             classifier = 'Reduction'
+            annot.meta.append(graph.identity)
         else:
             classifier = None
 
