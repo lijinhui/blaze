@@ -233,8 +233,9 @@ class InstructionGen(MroVisitor):
         pass
 
     def _Executor(self, term):
-        executor_id, backend, has_lhs = term.annotation.meta
+        executor_id, backend, has_lhs, fillvalue = term.annotation.meta
         has_lhs = has_lhs.label
+        fillvalue = fillvalue.label
         executor = self.executors[executor_id.label]
 
         self.visit(term.args)
@@ -247,7 +248,8 @@ class InstructionGen(MroVisitor):
             lhs = None
 
         # build the instruction & push it on the stack
-        inst = Instruction(executor, get_datashape(term), fargs, lhs=lhs)
+        inst = Instruction(executor, get_datashape(term), fargs, lhs=lhs,
+                           fillvalue=fillvalue)
         self._instructions.append(inst)
 
     def AInt(self, term):

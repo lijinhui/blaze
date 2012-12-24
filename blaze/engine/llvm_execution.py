@@ -104,8 +104,10 @@ class ATermToAstTranslator(visitor.GraphTranslator):
             operator, operand = graph.args
             opname = operator.label.lower()
             kernel = self.opname_to_reduce_kernel[opname]
+
             executor = executors.NumbaFullReducingExecutor(
                     strategy, kernel, minitype(result_dtype), operation=opname)
+            fillvalue = graph.annotation.meta[1]
         else:
             pyast_function = self.ufunc_builder.build_ufunc_ast(result)
             # print getsource(pyast_function)
@@ -116,13 +118,14 @@ class ATermToAstTranslator(visitor.GraphTranslator):
             executor = build_ufunc_executor(operand_dtypes, py_ufunc,
                                             pyast_function, result_dtype,
                                             strategy)
+            fillvalue = None
 
-        return executor
+        return executor, fillvalue
 
     def register_operand(self, graph, result, lhs):
         operands = self.ufunc_builder.operands
 
-        executor = self.build_executor(graph, operands, result)
+        executor, fillvalue = self.build_executor(graph, operands, result)
         self.executors[id(executor)] = executor
 
         if lhs is not None:
@@ -135,7 +138,7 @@ class ATermToAstTranslator(visitor.GraphTranslator):
 
         annotation = paterm.AAnnotation(
             ty=datashape,
-            annotations=[id(executor), 'numba', bool(lhs)]
+            annotations=[id(executor), 'numba', bool(lhs), fillvalue]
         )
         appl = paterm.AAppl(paterm.ATerm('Executor'), operands,
                             annotation=annotation)
