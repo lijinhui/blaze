@@ -92,25 +92,6 @@ class CArraySource(ByteProvider):
         """
         return self.ca.partitions
 
-    @staticmethod
-    def infer_datashape(source):
-        """
-        The user has only provided us with a Python object ( could be
-        a buffer interface, a string, a list, list of lists, etc) try
-        our best to infer what the datashape should be in the context of
-        what it would mean as a CArray.
-        """
-        if isinstance(source, np.ndarray):
-            return from_numpy(source.shape, source.dtype)
-        elif isinstance(source, CArraySource):
-            return from_numpy(source.ca.shape, source.ca.dtype)
-        elif isinstance(source, list):
-            # TODO: um yeah, we'd don't actually want to do this
-            cast = np.array(source)
-            return from_numpy(cast.shape, cast.dtype)
-        else:
-            return dynamic
-
     # Structural Checking
     # -------------------
 

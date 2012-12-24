@@ -11,6 +11,8 @@ The toplevel modules containing the core Blaze datastructures.
 import numpy as np
 from operator import eq
 
+from blaze import carray
+from blaze.datashape.coretypes import dynamic, from_numpy, to_numpy
 from blaze.sources.descriptors.byteprovider import ByteProvider
 from idx import Space, Subspace, Index
 
@@ -125,7 +127,7 @@ class ArrayLike(Indexable):
             # The user just passed in a raw data source, try
             # and infer how it should be layed out or fail
             # back on dynamic types.
-            self._datashape = dshape = CArraySource.infer_datashape(obj)
+            self._datashape = dshape = self.infer_datashape(obj)
         else:
             # The user overlayed their custom dshape on this
             # data, check if it makes sense
@@ -158,6 +160,28 @@ class ArrayLike(Indexable):
         # Parameters
         # ----------
         self.params = params
+
+
+    @staticmethod
+    def infer_datashape(source):
+        """
+        The user has only provided us with a Python object ( could be
+        a buffer interface, a string, a list, list of lists, etc) try
+        our best to infer what the datashape should be in the context of
+        what it would mean as a CArray.
+        """
+        if isinstance(source, (np.ndarray, carray.carray)):
+            return from_numpy(source.shape, source.dtype)
+        #elif isinstance(source, ArrayLike): # copy array?
+        #    return source.datashape
+        elif isinstance(source, CArraySource):
+            return from_numpy(source.ca.shape, source.ca.dtype)
+        elif isinstance(source, list):
+            # TODO: um yeah, we'd don't actually want to do this
+            cast = np.array(source)
+            return from_numpy(cast.shape, cast.dtype)
+        else:
+            return dynamic
 
 
 #------------------------------------------------------------------------

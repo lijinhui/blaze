@@ -51,6 +51,10 @@ class Add(Op):
 
     is_arithmetic = True
 
+class Sub(Add):
+    commutative = False
+    associative = False
+
 class Mul(Op):
     # -----------------------
     arity = 2

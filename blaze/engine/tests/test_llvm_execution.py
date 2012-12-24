@@ -63,12 +63,13 @@ def test_abs():
 def test_sum():
     """
     >>> test_sum()
+    array(10.0, dtype=float32)
     """
     a = NDArray([1, 2, 3, 4], datashape('4, float32'))
     result = blaze.sum(a).eval()
     print_data(result)
 
-
+@skip("allclose not complete yet")
 def test_execution():
     """
     >>> test_execution()
@@ -95,8 +96,8 @@ def test_execution():
 if __name__ == '__main__':
 #    print blaze.zeros(datashape("4, float32")).datashape
 #    print test_abs()
-#   test_conversion()
+#    test_conversion()
 #    test_execution()
-    test_sum()
-#    import doctest
-#    doctest.testmod()
+#    test_sum()
+    import doctest
+    doctest.testmod()

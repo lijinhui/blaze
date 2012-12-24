@@ -653,7 +653,7 @@ def extract_dims(ds):
     dimensions
     """
     if isinstance(ds, CType):
-        raise Exception("No Dimensions")
+        raise NotNumpyCompatible("No Dimensions")
     return ds.parameters[0:-1]
 
 def extract_measure(ds):
@@ -768,12 +768,12 @@ def promote(*operands):
     return datashape
 
 def broadcast(*operands):
-    types = [op.simple_type() for op in operands if op is not None]
+    types = [op.datashape for op in operands if op is not None]
     shapes = []
     for t in types:
         try:
             shapes.append(extract_dims(t))
-        except NotShaped:
+        except NotNumpyCompatible:
             pass
 
     # TODO: broadcasting

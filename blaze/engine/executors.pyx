@@ -77,7 +77,7 @@ cdef class Executor(object):
         descriptors = [op.data.read_desc() for op in operands]
 
         nbytes_list = np.array([desc.nbytes for desc in descriptors])
-        assert np.all(nbytes_list == nbytes_list[0]), nbytes_list
+        # assert np.all(nbytes_list == nbytes_list[0]), nbytes_list
 
         # TODO: stack-allocate MAX_OPERANDS entries
         data_pointers = <void **> malloc(len(operands) * sizeof(void *))
@@ -87,15 +87,18 @@ cdef class Executor(object):
             if data_pointers == NULL or strides == NULL:
                 raise MemoryError
 
-            # TODO: match up chunks of different sizes
+            # TODO: match up chunks of different sizes (and recognize reductions)
             iterators = [desc.as_chunked_iterator() for desc in descriptors]
+            assert len(iterators) >= 2, iterators
+
             for paired_chunks in zip(*iterators):
                 # paired_chunks, lhs_chunk = paired_chunks[:-1], paired_chunks[-1]
                 for i, chunk in enumerate(paired_chunks):
                     data_pointers[i] = chunk.chunk.data
                     strides[i] = chunk.chunk.stride
 
-                self.execute_chunk(data_pointers, strides, chunk.chunk.size)
+                self.execute_chunk(data_pointers, strides, chunk.chunk.size,
+                                   paired_chunks)
 
                 for it, chunk in zip(iterators, paired_chunks):
                     it.dispose(chunk)
@@ -109,7 +112,7 @@ cdef class Executor(object):
         return out_operand
 
     cdef execute_chunk(self, void **data_pointers, Py_ssize_t *strides,
-                             size_t size):
+                             size_t size, tuple paired_chunks):
         raise NotImplementedError
 
     def __repr__(self):
@@ -141,7 +144,7 @@ cdef class ElementwiseLLVMExecutor(Executor):
         self.lhs_array = array
 
     cdef execute_chunk(self, void **data_pointers, Py_ssize_t *strides,
-                             size_t size):
+                             size_t size, tuple paired_chunks):
         """
         Execute a kernel over the data
 
@@ -185,11 +188,15 @@ cdef class NumbaFullReducingExecutor(Executor):
         self.numba_type = numba_type
 
     cdef execute_chunk(self, void **data_pointers, Py_ssize_t *strides,
-                             size_t size):
+                             size_t size, tuple paired_chunks):
+        # Use the RHS to determine the data size, the scalar LHS is used
+        # only to reduce
+        cdef lldescriptors.Chunk chunk = paired_chunks[0]
+
         numba_kernels.numba_full_reduce(
                 <Py_uintptr_t> data_pointers,
                 strides[0],
-                size,
+                chunk.chunk.size,
                 self.reduce_kernel,
                 self.numba_type,
                 self.numba_type.pointer())

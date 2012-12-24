@@ -6,9 +6,10 @@ from params import params as _params
 from sources.sql import SqliteSource
 from sources.chunked import CArraySource, CTableSource
 
-from table import NDArray, Array, NDTable, Table
+from table import NDArray, Array, NDTable, Table, ArrayLike
 from blaze.datashape.coretypes import from_numpy, to_numpy, TypeVar, Fixed
 from blaze import carray, dshape as _dshape
+from blaze.expr import graph
 
 import numpy as np
 
@@ -181,8 +182,12 @@ def loadtxt(filetxt, storage):
     """ Convert txt file into Blaze native format """
     Array(np.loadtxt(filetxt), params=params(storage=storage))
 
-def _ndarray(a):
-    if not isinstance(a, NDArray):
+def lazy(a):
+    """
+    Turn an object into its lazy blaze equivalent.
+    """
+    # TODO: tables, etc
+    if not isinstance(a, (ArrayLike, graph.ExpressionNode)):
         a = NDArray(a)
     return a
 
@@ -240,28 +245,28 @@ def allclose(a, b, rtol=1e-05, atol=1e-08):
     >>> blaze.allclose([1.0, np.nan], [1.0, np.nan])
     False
     """
-    a, b = _ndarray(a), _ndarray(b)
+    a, b = lazy(a), lazy(b)
     return blaze_all(blaze_abs(a - b) <= atol + rtol * blaze_abs(b))
 
 def blaze_all(a, axis=None, out=None):
     """
     Test whether all array elements along a given axis evaluate to True.
     """
-    a = _ndarray(a)
+    a = lazy(a)
     return a.all(axis=axis, out=out)
 
 def blaze_any(a, axis=None, out=None):
     """
     Test whether any array elements along a given axis evaluate to True.
     """
-    a = _ndarray(a)
+    a = lazy(a)
     return a.any(axis=axis, out=out)
 
 def blaze_abs(a, axis=None, out=None):
     """
     Returns the absolute value element-wise.
     """
-    a = _ndarray(a)
+    a = lazy(a)
     return a.abs(axis=axis, out=out)
 
 def blaze_sum(a, axis=None, out=None):
@@ -323,5 +328,5 @@ def blaze_sum(a, axis=None, out=None):
     >>> np.sum([[0, 1], [0, 5]], axis=1)
     array([1, 5])
     """
-    a = _ndarray(a)
+    a = lazy(a)
     return a.sum(axis=axis, out=out)

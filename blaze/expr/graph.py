@@ -205,7 +205,14 @@ class ExpressionNode(nodes.Node):
     """
     abstract = True
 
+    # Application class. The App result must conform to the original operands
+    # to provide the same interface, e.g.
+    #       (a + b).sum()
+    #          ^_____________ App must have 'sum' method
+    App_cls = None
+
     def generate_opnode(self, arity, func_name, args=None, kwargs=None):
+        App_ = self.App_cls or App
 
         # TODO: also kwargs when we support such things
         iargs = injest_iterable(args)
@@ -215,11 +222,11 @@ class ExpressionNode(nodes.Node):
 
         if arity == 1:
             iop = op(func_name, iargs)
-            return App(iop)
+            return App_(iop)
 
         if arity == 2:
             iop = op(func_name, iargs)
-            return App(iop)
+            return App_(iop)
 
         elif arity == -1:
             return op(func_name, iargs, kwargs)
@@ -282,6 +289,7 @@ class ArrayNode(ExpressionNode):
     A array structure with dimension and length.
     """
     kind = VAL
+    App_cls = None # Set to ArrayApp when defined
 
     # Read Operations
     # ===============
@@ -473,6 +481,14 @@ class App(ExpressionNode):
     def name(self):
         return 'App'
 
+class ArrayApp(App, ArrayNode):
+    """
+    Application of an operation on ArrayLike. The result will inherit
+    PyArray_ReadMethods and PyArray_WriteMethods from ArrayNode.
+    """
+
+ArrayNode.App_cls = ArrayApp
+
 #------------------------------------------------------------------------
 # Function Call
 #------------------------------------------------------------------------
@@ -563,7 +579,8 @@ class Op(ExpressionNode):
         self.datashape = self.compute_datashape(operands, kwargs)
 
     def compute_datashape(self, operands, kwargs):
-        return coretypes.broadcast(*operands)
+        dshape = coretypes.broadcast(*operands)
+        return dshape
 
     @property
     def nin(self):
