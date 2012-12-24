@@ -96,12 +96,8 @@ class Instruction(object):
 
         self.datashape = datashape
 
-    def execute(self, operands):
-        kwargs = {}
-        if self.lhs is not None:
-            kwargs["lhs"] = self.lhs
-
-        return self.fn(operands, **kwargs)
+    def execute(self, operands, lhs=None):
+        return self.fn(operands, lhs)
 
     def __repr__(self):
         # with output types
